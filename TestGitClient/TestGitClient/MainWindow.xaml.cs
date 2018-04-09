@@ -76,9 +76,8 @@ namespace TestGitClient
                 var allLinks = new List<Edge>();
                 int i = 0;
                 Node lastCommit = null;
-                var commits = new List<Commit>();
-                foreach (Commit commit in repo.Commits)
-                {   commits.Add(commit);    }
+
+                var commits = new List<Commit>(repo.Commits);                               
                 commits.Sort((a, b) => a.Author.When.CompareTo(b.Author.When));
                 
                 foreach (Commit commit in commits)
@@ -109,23 +108,13 @@ namespace TestGitClient
                     foreach (var parent in commit.Parents)
                     {
                         hasParrents = true;
-                        var changes = repo.Diff.Compare<TreeChanges>(parent.Tree, commit.Tree);
-                        //Output(String.Format("{0} | {1}  ({2})", commit.Sha, commit.MessageShort , changes.Count));
+                        var changes = repo.Diff.Compare<TreeChanges>(parent.Tree, commit.Tree);                        
                         foreach (TreeEntryChanges change in changes)
                         {
                             //Output(String.Format("{0} : {1}", change.Status, change.Path));
 
                             var fileNode = new Node(change.Path + commit.Id, Node.NodeType.File, change.Path);
-                            if (!fileNodes.ContainsKey(change.Path))
-                            {
-                                fileNodes.Add(change.Path,fileNode);
-                            }
-                            else
-                            {
-                                var oldFileNode = fileNodes[change.Path];
-                                allLinks.Add(new Edge(oldFileNode, fileNode,Edge.LinkType.FileModification));
-                                fileNodes[change.Path] = fileNode;
-                            }
+                            Node oldFileNode = GetOldVersionOfFile(fileNodes, allLinks, change.Path, fileNode);
 
                             allNodes.Add(fileNode);
                             allLinks.Add(new Edge(commitNode, fileNode, Edge.LinkType.HierarchialyAbove));
@@ -139,18 +128,7 @@ namespace TestGitClient
 
                     if (!hasParrents)
                     {
-                        var tree = commit.Tree;
-                        foreach (var element in tree)
-                        {
-                            var fileNode = new Node(element.Path + commit.Id, Node.NodeType.File, element.Path);
-                            fileNodes.Add(element.Path, fileNode);
-                            allNodes.Add(fileNode);
-                            allLinks.Add(new Edge(commitNode, fileNode, Edge.LinkType.HierarchialyAbove));
-
-                            if (!element.Path.EndsWith(".cs")) { continue; }
-                            fileNode.Type = Node.NodeType.FileCS;
-                            ParseCsFileAndAddToGraph(allNodes, allLinks, commit, element.Path, fileNode);
-                        }
+                        AddInitialCommitToGraph(fileNodes, allNodes, allLinks, commit, commitNode);
                     }
                 }
 
@@ -165,6 +143,38 @@ namespace TestGitClient
             return usedLokal;
         }
 
+        private void AddInitialCommitToGraph(Dictionary<string, Node> fileNodes, List<Node> allNodes, List<Edge> allLinks, Commit commit, Node commitNode)
+        {
+            var tree = commit.Tree;
+            foreach (var element in tree)
+            {
+                var fileNode = new Node(element.Path + commit.Id, Node.NodeType.File, element.Path);
+                fileNodes.Add(element.Path, fileNode);
+                allNodes.Add(fileNode);
+                allLinks.Add(new Edge(commitNode, fileNode, Edge.LinkType.HierarchialyAbove));
+
+                if (!element.Path.EndsWith(".cs")) { continue; }
+                fileNode.Type = Node.NodeType.FileCS;
+                ParseCsFileAndAddToGraph(allNodes, allLinks, commit, element.Path, fileNode);
+            }
+        }
+
+        private static Node GetOldVersionOfFile(Dictionary<string, Node> fileNodes, List<Edge> allLinks, string path, Node fileNode)
+        {
+            Node result = null;
+            if (!fileNodes.ContainsKey(path))
+            {
+                fileNodes.Add(path, fileNode);
+            }
+            else
+            {
+                result = fileNodes[path];
+                allLinks.Add(new Edge(result, fileNode, Edge.LinkType.FileModification));
+                fileNodes[path] = fileNode;
+            }
+            return result;
+        }
+
         private void ParseCsFileAndAddToGraph(List<Node> allNodes, List<Edge> allLinks, Commit commit, string path, Node fileNode)
         {
             var blob = commit.Tree[path].Target as Blob;
@@ -176,7 +186,12 @@ namespace TestGitClient
                     string content = tr.ReadToEnd();
                     var foo = CSharpSyntaxTree.ParseText(content);
 
+                    var subEdges = new List<Edge>();
+                    var subNodes = new List<Node>();                    
                     AddChildsToNodes(foo.GetRoot(), fileNode, allNodes, allLinks);
+
+                    allLinks.AddRange(subEdges);
+                    allNodes.AddRange(subNodes);
                 }
             }
         }
@@ -200,6 +215,7 @@ namespace TestGitClient
             {                
                 var n = new Node(nodeId.ToString(),c.Kind().ToString(),"test");
                 n.FullContent = c.ToFullString().Trim();
+                n.SyntaxNode = c;
                 nodeId++;
 
                 allNodes.Add(n);

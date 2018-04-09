@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics;
+using Microsoft.CodeAnalysis;
 
 namespace TestGitClient
 {
-
     [DebuggerDisplay("{Type} : {Content}")]
     public class Node
     {
@@ -17,11 +17,10 @@ namespace TestGitClient
 
         public NodeType Type { get; set; }
         public string Id { get; set; }
-
         public string SyntaxType { get; set; }
         public string Content { get; set; }
-
         public string FullContent { get; set; }
+        public SyntaxNode SyntaxNode { get; internal set; }
 
         public Node(string nodeId, NodeType nodeType, string content)
         {
@@ -38,5 +37,4 @@ namespace TestGitClient
             this.SyntaxType = nodeType;
         }
     }
-
 }
