@@ -1,0 +1,23 @@
+﻿<Window x:Class="TestGitClient.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TestGitClient"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="350" Width="525">
+    <Grid>
+        <DockPanel>
+            <DockPanel DockPanel.Dock="Top">
+                <Button DockPanel.Dock="Right" Click="OnTry"  HorizontalAlignment="Center">Try this</Button>
+                <StackPanel  DockPanel.Dock="Left" HorizontalAlignment="Stretch">
+                    <TextBox x:Name="UrlInput" HorizontalAlignment="Stretch">https://github.com/FrankT1983/HelloWorldParseTest.git</TextBox>               
+                    <TextBox x:Name="LokalPath">C:/Tmp/GitTest2</TextBox>
+                </StackPanel>
+            </DockPanel>
+            <VirtualizingStackPanel x:Name="OutputBox">
+                
+            </VirtualizingStackPanel>
+        </DockPanel>
+    </Grid>
+</Window>
