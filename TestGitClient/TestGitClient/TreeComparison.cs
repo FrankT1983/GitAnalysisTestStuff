@@ -30,6 +30,11 @@ namespace TestGitClient
 
     public class TreeHelper
     {
+        static public SyntakTreeDecorator SyntaxTreeFromString(string content)
+        {
+            return SyntaxTreeFromString(content, null, null, null);
+        }
+
         private static int nodeId = 0;
         static public SyntakTreeDecorator SyntaxTreeFromString(string content, Node fileNode, List<Node> allNodes, List<Edge> allLinks)
         {
@@ -119,8 +124,15 @@ namespace TestGitClient
 
         public static FindBelongingResult FindBelongingThing(SyntakTreeDecorator toFind, List<SyntakTreeDecorator> possibleMatches)
         {
+            var toFindContentString = ContentString(toFind.node);
             {
-                var equiv = possibleMatches.Find(n => n.node.IsEquivalentTo(toFind.node));
+                var identical = possibleMatches.Find(n => n.node.ToFullString().Equals(toFind.node.ToFullString()));
+                if (identical != null)
+                {
+                    return new FindBelongingResult() { treeNode = identical, wasModified = false, howModified = ModificationKind.noModification };
+                }
+
+                    var equiv = possibleMatches.Find(n => n.node.IsEquivalentTo(toFind.node));
                 if (equiv != null)
                 {
                     return new FindBelongingResult() { treeNode = equiv, wasModified = false , howModified = ModificationKind.noModification};
@@ -134,9 +146,9 @@ namespace TestGitClient
                 {
                     foreach (var s in sameKind)
                     {
-                        if (AreRoughlyEquivilant(toFind.node.Kind(), s.node, toFind.node))
+                        if (HaveSameName(toFind.node.Kind(), s.node, toFind.node))
                         {                                                       
-                            return new FindBelongingResult() { treeNode = s, wasModified = s.node.ToFullString().Equals(toFind.node.ToFullString()) , howModified = ModificationKind.contentChanged };
+                            return new FindBelongingResult() { treeNode = s, wasModified = ContentString(s.node).Equals(toFindContentString), howModified = ModificationKind.contentChanged };
                         }
                     }
                 }
@@ -144,7 +156,7 @@ namespace TestGitClient
                 if (sameKind.Count == 1)
                 {
                     var s = sameKind[0];                    
-                    bool sameContent = s.node.ToFullString().Equals(toFind.node.ToFullString());
+                    bool sameContent = ContentString(s.node).Equals(toFindContentString);
                     ModificationKind how = ModificationKind.nameChanged;
                     if (!sameContent)
                     {
@@ -156,22 +168,44 @@ namespace TestGitClient
 
             }
 
-
-
-
             return null;
         }
 
-        private static bool AreRoughlyEquivilant(SyntaxKind syntaxKind, SyntaxNode node1, SyntaxNode node2)
+        private static string ContentString(SyntaxNode node)
         {
+            var b = new StringBuilder();            
+            foreach(var c in node.ChildNodes())
+            {
+                if (c.IsKind(SyntaxKind.IdentifierName))
+                { continue; }
+
+                b.Append(c.ToFullString());
+            }
+            return b.ToString();
+        }
+
+
+        private static bool HaveSameName(SyntaxKind syntaxKind, SyntaxNode node1, SyntaxNode node2)
+        {            
+
             switch (syntaxKind)
             {
-                case SyntaxKind.NamespaceDeclaration:
+                case SyntaxKind.ClassDeclaration:
+                    {
+                        var typed1 = node1 as Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax;
+                        var typed2 = node2 as Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax;
+
+                        if (typed1!=null && typed2 != null)
+                        {
+                            return typed1.Identifier.Value.Equals(typed2.Identifier.Value);
+                        }
+                    }
+
+                    break;
+                case SyntaxKind.NamespaceDeclaration:                
                     string n1 = GetIdentifyer(node1);
                     string n2 = GetIdentifyer(node2);
                     return n1.Equals(n2);
-
-                    
 
                 default:
                     return false;
