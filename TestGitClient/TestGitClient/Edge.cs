@@ -14,6 +14,7 @@ namespace TestGitClient
             FileModification,
             NoCodeChange,
             CodeChanged,
+            CodeChangedRename,
         }
 
         public Edge(Node f, Node t, LinkType linkType)

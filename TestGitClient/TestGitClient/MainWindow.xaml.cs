@@ -168,15 +168,25 @@ namespace TestGitClient
 
                 if (to != null)
                 {
-                    if (to.wasModified)
+                    if (!to.wasModified)
                     {
                         transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.LinkType.NoCodeChange));
                         continue;
                     }
                     else
                     {
-                        transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.LinkType.CodeChanged));
+                        switch (to.howModified)
+                        {
+                            case ModificationKind.nameChanged:
+                                transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.LinkType.CodeChangedRename));
+                                break;
+                            default:
+                                transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.LinkType.CodeChanged));
+                                break;
+                        }                       
                     }
+
+                    CompareTressAndCreateLinks(from, to.treeNode, transitionEdges);
                 }
                 else
                 {

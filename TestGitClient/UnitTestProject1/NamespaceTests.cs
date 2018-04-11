@@ -33,7 +33,7 @@ namespace UnitTestProject1
             // should find the namespace declaration with Foo2 in it
             Assert.IsNotNull(foo);
             Assert.IsNotNull(foo.treeNode);
-            Assert.IsFalse(foo.wasModified);
+            Assert.IsTrue(foo.wasModified);
             Assert.AreEqual(ModificationKind.contentChanged, foo.howModified);
             Assert.IsTrue(foo.treeNode.node.ToFullString().Contains("Foo2"));
         }

@@ -36,13 +36,16 @@ namespace TestGitClient
         }
 
         private static int nodeId = 0;
-        static public SyntakTreeDecorator SyntaxTreeFromString(string content, Node fileNode, List<Node> allNodes, List<Edge> allLinks)
+        static public SyntakTreeDecorator SyntaxTreeFromString(string content, Node fileNode, List<Node> allNodes, List<Edge> allEdges)
         {
             var foo = CSharpSyntaxTree.ParseText(content);
 
             var subEdges = new List<Edge>();
             var subNodes = new List<Node>();
             var childTrees = AddChildsToNodes(foo.GetRoot(), fileNode, subNodes, subEdges);
+
+            allNodes.AddRange(subNodes);
+            allEdges.AddRange(subEdges);
 
             var enrichedTree = new SyntakTreeDecorator();
             enrichedTree.node = foo.GetRoot();
@@ -51,7 +54,7 @@ namespace TestGitClient
             return enrichedTree;
         }
 
-        static public List<SyntakTreeDecorator> AddChildsToNodes(SyntaxNode rootNode, Node fileNode, List<Node> allNodes, List<Edge> allLinks)
+        static public List<SyntakTreeDecorator> AddChildsToNodes(SyntaxNode rootNode, Node fileNode, List<Node> allNodes, List<Edge> allEdges)
         {
             var kind = rootNode.Kind();
             // break early for stuff
@@ -59,12 +62,12 @@ namespace TestGitClient
                 (kind == SyntaxKind.UsingDirective)
                 || (kind == SyntaxKind.SimpleBaseType) || (kind == SyntaxKind.ParameterList) || (kind == SyntaxKind.ExpressionStatement) || (kind == SyntaxKind.LocalDeclarationStatement) || (kind == SyntaxKind.NotEqualsExpression)
                 || (kind == SyntaxKind.EnumMemberDeclaration) || (kind == SyntaxKind.FieldDeclaration)
-                || (kind == SyntaxKind.ClassDeclaration)
+                //|| (kind == SyntaxKind.ClassDeclaration)
                 )
             { return null; }
 
             var results = new List<SyntakTreeDecorator>();
-            var childs = rootNode.ChildNodes();
+            var childs = rootNode.ChildNodes().ToList();
             foreach (var c in childs)
             {
                 var n = new Node(nodeId.ToString(), c.Kind().ToString(), c.Kind().ToString());
@@ -77,9 +80,9 @@ namespace TestGitClient
                 nodeId++;
 
                 if (allNodes != null) { allNodes.Add(n); }
-                if (fileNode != null) { allLinks.Add(new Edge(fileNode, n, Edge.LinkType.Generic)); }
+                if (fileNode != null) { allEdges.Add(new Edge(fileNode, n, Edge.LinkType.Generic)); }
 
-                var childtrees = AddChildsToNodes(c, n, allNodes, allLinks);
+                var childtrees = AddChildsToNodes(c, n, allNodes, allEdges);
                 if (childtrees != null) { n2.childs.AddRange(childtrees); }
 
                 results.Add(n2);
@@ -87,7 +90,7 @@ namespace TestGitClient
             return results;
         }
 
-        static public SyntakTreeDecorator ParseCsFileAndAddToGraph(List<Node> allNodes, List<Edge> allLinks, Commit commit, string path, Node fileNode)
+        static public SyntakTreeDecorator ParseCsFileAndAddToGraph(List<Node> allNodes, List<Edge> allEdges, Commit commit, string path, Node fileNode)
         {
             var blob = commit.Tree[path].Target as Blob;
             if (blob == null)
@@ -104,7 +107,7 @@ namespace TestGitClient
             
                 
                 allNodes.AddRange(subNodes);
-                allLinks.AddRange(subEdges);
+                allEdges.AddRange(subEdges);
 
                 return enrichedTree;
             }
@@ -146,9 +149,10 @@ namespace TestGitClient
                 {
                     foreach (var s in sameKind)
                     {
-                        if (HaveSameName(toFind.node.Kind(), s.node, toFind.node))
+                        bool? haveSameName = HaveSameName(toFind.node.Kind(), s.node, toFind.node);
+                        if (haveSameName == true || haveSameName == null)   // same name, or no name
                         {                                                       
-                            return new FindBelongingResult() { treeNode = s, wasModified = ContentString(s.node).Equals(toFindContentString), howModified = ModificationKind.contentChanged };
+                            return new FindBelongingResult() { treeNode = s, wasModified = !ContentString(s.node).Equals(toFindContentString), howModified = ModificationKind.contentChanged };
                         }
                     }
                 }
@@ -185,7 +189,7 @@ namespace TestGitClient
         }
 
 
-        private static bool HaveSameName(SyntaxKind syntaxKind, SyntaxNode node1, SyntaxNode node2)
+        private static bool? HaveSameName(SyntaxKind syntaxKind, SyntaxNode node1, SyntaxNode node2)
         {            
 
             switch (syntaxKind)
@@ -220,6 +224,8 @@ namespace TestGitClient
                 default:
                     string n1 = GetIdentifyer(node1);
                     string n2 = GetIdentifyer(node2);
+
+                    if (n1 == null || n2 == null) return null;
                     return n1.Equals(n2);                                    
             }            
         }

@@ -19,7 +19,7 @@ namespace TestGitClient
             foo.graph = new graphcontent();
 
             string NodeTypeId = "NodeTypeAttribute";
-            var attributes = new attributescontent
+            var nodeAttributes = new attributescontent
             {
                 @class = classtype.node,
                 attribute = new[]
@@ -28,6 +28,21 @@ namespace TestGitClient
                                 {
                                     id = NodeTypeId,
                                     title = "NodeType",
+                                    type = attrtypetype.@string
+                                }
+                            }
+            };
+
+            string EdgeTypeId = "EdgeTypeAttribute";
+            var edgeAttributes = new attributescontent
+            {
+                @class = classtype.edge,
+                attribute = new[]
+                            {
+                                new attributecontent
+                                {
+                                    id = EdgeTypeId,
+                                    title = "EdgeType",
                                     type = attrtypetype.@string
                                 }
                             }
@@ -73,19 +88,32 @@ namespace TestGitClient
                     blub.id = i.ToString(); i++;
                     blub.source = e.from.Id;
                     blub.target = e.to.Id;
+                    blub.Items = new object[]
+                                   {
+                                        new attvaluescontent
+                                        {
+                                            attvalue = new[]
+                                            {
+                                                new attvalue
+                                                {
+                                                    @for = EdgeTypeId,
+                                                    value = e.type.ToString()
+                                                }
+                                            }
+                                        }
+                                   };
                     convertedEdge.Add(blub);
                 }
                 edgesToSTore.edge = convertedEdge.ToArray();
                 edgesToSTore.count = convertedEdge.Count.ToString();
             }
 
-            foo.graph.Items = new object[3];
-            foo.graph.Items[0] = attributes;
-            foo.graph.Items[1] = nodesToStore;
-            foo.graph.Items[2] = edgesToSTore;
-
-
-
+            foo.graph.Items = new object[4];
+            foo.graph.Items[0] = nodeAttributes;
+            foo.graph.Items[1] = edgeAttributes;
+            foo.graph.Items[2] = nodesToStore;
+            foo.graph.Items[3] = edgesToSTore;
+            
             using (var file = XmlWriter.Create(path))
             {
                 var serializer = new XmlSerializer(typeof(gexfcontent));
