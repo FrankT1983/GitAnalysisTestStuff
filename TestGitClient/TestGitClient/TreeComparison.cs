@@ -44,8 +44,8 @@ namespace TestGitClient
             var subNodes = new List<Node>();
             var childTrees = AddChildsToNodes(foo.GetRoot(), fileNode, subNodes, subEdges);
 
-            allNodes.AddRange(subNodes);
-            allEdges.AddRange(subEdges);
+            if (allNodes != null) { allNodes.AddRange(subNodes); }
+            if (allEdges != null) { allEdges.AddRange(subEdges); }
 
             var enrichedTree = new SyntakTreeDecorator();
             enrichedTree.node = foo.GetRoot();
@@ -70,7 +70,9 @@ namespace TestGitClient
             var childs = rootNode.ChildNodes().ToList();
             foreach (var c in childs)
             {
-                var n = new Node(nodeId.ToString(), c.Kind().ToString(), c.Kind().ToString());
+
+                var nodeName = GetName(c);
+                var n = new Node(nodeId.ToString(), c.Kind().ToString(), c.Kind().ToString() + (nodeName!=null?" "+nodeName:""));
                 var n2 = new SyntakTreeDecorator();
                 n2.equivilantGraphNode = n;
                 n2.node = c;
@@ -80,7 +82,7 @@ namespace TestGitClient
                 nodeId++;
 
                 if (allNodes != null) { allNodes.Add(n); }
-                if (fileNode != null) { allEdges.Add(new Edge(fileNode, n, Edge.LinkType.Generic)); }
+                if (fileNode != null) { allEdges.Add(new Edge(fileNode, n, Edge.EdgeType.Generic)); }
 
                 var childtrees = AddChildsToNodes(c, n, allNodes, allEdges);
                 if (childtrees != null) { n2.childs.AddRange(childtrees); }
@@ -111,6 +113,44 @@ namespace TestGitClient
 
                 return enrichedTree;
             }
+        }
+
+        public static string GetName(SyntaxNode node)
+        {
+            {
+                var typed = node as Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax;
+                if (typed != null)
+                {
+                    return typed.Identifier.Value.ToString();
+                }
+            }
+
+
+            {
+                var typed = node as Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax;
+                if (typed != null)
+                {
+                    return typed.Identifier.Value.ToString();
+                }
+            }
+
+            {
+                var typed = node as Microsoft.CodeAnalysis.CSharp.Syntax.NamespaceDeclarationSyntax;
+                if (typed != null)
+                {
+                    return typed.Name.ToString();
+                }
+            }
+
+            {
+                var typed = node as Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax;
+                if (typed != null)
+                {
+                    return typed.ToFullString().Trim();
+                }
+            }
+
+            return null;
         }
 
     }
@@ -188,37 +228,26 @@ namespace TestGitClient
             return b.ToString();
         }
 
+       
+
 
         private static bool? HaveSameName(SyntaxKind syntaxKind, SyntaxNode node1, SyntaxNode node2)
         {            
 
             switch (syntaxKind)
             {
+                case SyntaxKind.MethodDeclaration:
                 case SyntaxKind.ClassDeclaration:
                     {
-                        var typed1 = node1 as Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax;
-                        var typed2 = node2 as Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax;
+                        var name1 = TreeHelper.GetName(node1);
+                        var name2 = TreeHelper.GetName(node2);
 
-                        if (typed1!=null && typed2 != null)
+                        if (name1 != null && name2 != null)
                         {
-                            return typed1.Identifier.Value.Equals(typed2.Identifier.Value);
+                            return name2.Equals(name1);
                         }
                     }
-                    goto default;
-
-                case SyntaxKind.MethodDeclaration:
-                    {
-                        var typed1 = node1 as Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax;
-                        var typed2 = node2 as Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax;
-
-                        if (typed1 != null && typed2 != null)
-                        {
-                            return typed1.Identifier.Value.Equals(typed2.Identifier.Value);
-                        }
-                    }
-                    goto default;
-
-
+                    goto default;               
 
                 case SyntaxKind.NamespaceDeclaration:
                 default:

@@ -24,7 +24,7 @@ namespace TestGitClient
         // todo: early test .... needs refactoring and seperation ov ViewModel and Model
         private void OnTry(object sender, RoutedEventArgs e)
         {
-            var urlLink = this.UrlInput.Text;
+            var url = this.UrlInput.Text;
             var lokalPath = this.LokalPath.Text;
             this.OutputBox.Children.Clear();
 
@@ -41,7 +41,7 @@ namespace TestGitClient
                 try
                 {
                     Output("Starting clone");
-                    Repository.Clone(urlLink, lokalPath);
+                    Repository.Clone(url, lokalPath);
                     Output("Clone finished");
                     OutputLokalRepo(lokalPath);
                 }
@@ -69,7 +69,7 @@ namespace TestGitClient
                 var fileNodes = new Dictionary<string, Node>();
                 var previousTrees = new Dictionary<string, SyntakTreeDecorator>();  // todo: this is inefficent, could drop commits, that are note useded anymore
                 var allNodes = new List<Node>();
-                var allLinks = new List<Edge>();
+                var allEdges = new List<Edge>();
                 int i = 0;
                 Node lastCommit = null;
 
@@ -92,11 +92,11 @@ namespace TestGitClient
 
                     var commitNode = new Node(commit.Id.Sha, Node.NodeType.Commit, commit.Message.Trim());
                     allNodes.Add(commitNode);
-                    allLinks.Add(new Edge(authorNode, commitNode, Edge.LinkType.Author));
+                    allEdges.Add(new Edge(authorNode, commitNode, Edge.EdgeType.Author));
 
                     if (lastCommit != null)
                     {
-                        allLinks.Add(new Edge(lastCommit, commitNode, Edge.LinkType.NextCommit));
+                        allEdges.Add(new Edge(lastCommit, commitNode, Edge.EdgeType.NextCommit));
                     }
                     lastCommit = commitNode;
 
@@ -110,10 +110,10 @@ namespace TestGitClient
                             //Output(String.Format("{0} : {1}", change.Status, change.Path));
 
                             var fileNode = new Node(change.Path + commit.Id, Node.NodeType.File, change.Path);
-                            Node oldFileNode = GetOldVersionOfFile(fileNodes, allLinks, change.Path, fileNode);
+                            Node oldFileNode = GetOldVersionOfFile(fileNodes, allEdges, change.Path, fileNode);
 
                             allNodes.Add(fileNode);
-                            allLinks.Add(new Edge(commitNode, fileNode, Edge.LinkType.HierarchialyAbove));
+                            allEdges.Add(new Edge(commitNode, fileNode, Edge.EdgeType.HierarchialyAbove));
 
                             if (!change.Path.EndsWith(".cs")) { continue; }
 
@@ -122,7 +122,7 @@ namespace TestGitClient
                             var subEdges = new List<Edge>();
                             var subNodes = new List<Node>();
                             var enrichedTree = TreeHelper.ParseCsFileAndAddToGraph(subNodes, subEdges, commit, change.Path, fileNode);
-                            allLinks.AddRange(subEdges);
+                            allEdges.AddRange(subEdges);
                             allNodes.AddRange(subNodes);
 
                             previousTrees.Add(ContructCommitTreeIdentifyer(commit.Sha,change.Path), enrichedTree);
@@ -131,19 +131,20 @@ namespace TestGitClient
                             if (previousTrees.TryGetValue(ContructCommitTreeIdentifyer(parent.Sha, change.Path), out prefTree))
                             {
                                 var transitionEdges = new List<Edge>();
-                                CompareTressAndCreateLinks(enrichedTree, prefTree, transitionEdges);
+                                CompareTressAndCreateEdges( prefTree, enrichedTree, transitionEdges);
+                                allEdges.AddRange(transitionEdges);
                             }
                         }
                     }
 
                     if (!hasParrents)
                     {
-                        AddInitialCommitToGraph(fileNodes, allNodes, allLinks, commit, commitNode);
+                        AddInitialCommitToGraph(fileNodes, allNodes, allEdges, commit, commitNode, previousTrees);
                     }
                 }
 
                 graph.Add(allNodes);
-                graph.Add(allLinks);
+                graph.Add(allEdges);
 
                 graph.Serialize("Test.GEXF");
 
@@ -158,7 +159,7 @@ namespace TestGitClient
             return comitSha + "|" + filePath;
         }
 
-        private static void CompareTressAndCreateLinks(SyntakTreeDecorator fromTree, SyntakTreeDecorator tooTree, List<Edge> transitionEdges)
+        private static void CompareTressAndCreateEdges(SyntakTreeDecorator fromTree, SyntakTreeDecorator tooTree, List<Edge> transitionEdges)
         {
             var thisLevelsEdges = new List<Edge>();
 
@@ -170,7 +171,7 @@ namespace TestGitClient
                 {
                     if (!to.wasModified)
                     {
-                        transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.LinkType.NoCodeChange));
+                        transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.EdgeType.NoCodeChange));
                         continue;
                     }
                     else
@@ -178,15 +179,15 @@ namespace TestGitClient
                         switch (to.howModified)
                         {
                             case ModificationKind.nameChanged:
-                                transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.LinkType.CodeChangedRename));
+                                transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.EdgeType.CodeChangedRename));
                                 break;
                             default:
-                                transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.LinkType.CodeChanged));
+                                transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.EdgeType.CodeChanged));
                                 break;
                         }                       
                     }
 
-                    CompareTressAndCreateLinks(from, to.treeNode, transitionEdges);
+                    CompareTressAndCreateEdges(from, to.treeNode, transitionEdges);
                 }
                 else
                 {
@@ -198,7 +199,7 @@ namespace TestGitClient
             // todo: I should realy unit-test this.
         }       
 
-        private void AddInitialCommitToGraph(Dictionary<string, Node> fileNodes, List<Node> allNodes, List<Edge> allLinks, Commit commit, Node commitNode)
+        private void AddInitialCommitToGraph(Dictionary<string, Node> fileNodes, List<Node> allNodes, List<Edge> allEdges, Commit commit, Node commitNode, Dictionary<string, SyntakTreeDecorator> previousTrees)
         {
             var tree = commit.Tree;
             foreach (var element in tree)
@@ -206,15 +207,17 @@ namespace TestGitClient
                 var fileNode = new Node(element.Path + commit.Id, Node.NodeType.File, element.Path);
                 fileNodes.Add(element.Path, fileNode);
                 allNodes.Add(fileNode);
-                allLinks.Add(new Edge(commitNode, fileNode, Edge.LinkType.HierarchialyAbove));
+                allEdges.Add(new Edge(commitNode, fileNode, Edge.EdgeType.HierarchialyAbove));
 
                 if (!element.Path.EndsWith(".cs")) { continue; }
                 fileNode.Type = Node.NodeType.FileCS;
-                TreeHelper.ParseCsFileAndAddToGraph(allNodes, allLinks, commit, element.Path, fileNode);
+                var enrichedTree = TreeHelper.ParseCsFileAndAddToGraph(allNodes, allEdges, commit, element.Path, fileNode);
+
+                previousTrees.Add(ContructCommitTreeIdentifyer(commit.Sha, element.Path), enrichedTree);
             }
         }
 
-        private static Node GetOldVersionOfFile(Dictionary<string, Node> fileNodes, List<Edge> allLinks, string path, Node fileNode)
+        private static Node GetOldVersionOfFile(Dictionary<string, Node> fileNodes, List<Edge> allEdges, string path, Node fileNode)
         {
             Node result = null;
             if (!fileNodes.ContainsKey(path))
@@ -224,7 +227,7 @@ namespace TestGitClient
             else
             {
                 result = fileNodes[path];
-                allLinks.Add(new Edge(result, fileNode, Edge.LinkType.FileModification));
+                allEdges.Add(new Edge(result, fileNode, Edge.EdgeType.FileModification));
                 fileNodes[path] = fileNode;
             }
             return result;

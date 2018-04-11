@@ -5,7 +5,7 @@ namespace TestGitClient
     [DebuggerDisplay("{type} : {from} -> {to}")]
     public class Edge
     {
-        public enum LinkType
+        public enum EdgeType
         {
             Generic,
             HierarchialyAbove,
@@ -17,18 +17,18 @@ namespace TestGitClient
             CodeChangedRename,
         }
 
-        public Edge(Node f, Node t, LinkType linkType)
+        public Edge(Node f, Node t, EdgeType edgeType)
         {
             this.from = f;
             this.to = t;
-            this.type = linkType;
+            this.type = edgeType;
         }
 
-        public Edge(Node f, Node t) : this(f, t, LinkType.Generic)
+        public Edge(Node f, Node t) : this(f, t, EdgeType.Generic)
         { }
 
         public Node from;
         public Node to;
-        public LinkType type;
+        public EdgeType type;
     }
 }

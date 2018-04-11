@@ -57,6 +57,11 @@ namespace TestGitClient
                     var node = new nodecontent();
                     node.id = nc.Id;
                     node.label = nc.Type + " : " + nc.Id;
+                    if (nc.Type == Node.NodeType.Syntax)
+                    {
+                        node.label = nc.Type + " : " + nc.Content;
+                    }
+                    
                     node.Items = new object[]
                                     {
                                         new attvaluescontent
@@ -129,9 +134,9 @@ namespace TestGitClient
             }
         }
 
-        internal void Add(List<Edge> allLinks)
+        internal void Add(List<Edge> allEdges)
         {
-            foreach (var n in allLinks)
+            foreach (var n in allEdges)
             {
                 this.edgedes.Add(n);
             }
