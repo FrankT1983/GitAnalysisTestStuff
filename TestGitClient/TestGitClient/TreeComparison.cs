@@ -200,18 +200,28 @@ namespace TestGitClient
                             return typed1.Identifier.Value.Equals(typed2.Identifier.Value);
                         }
                     }
+                    goto default;
 
-                    break;
-                case SyntaxKind.NamespaceDeclaration:                
+                case SyntaxKind.MethodDeclaration:
+                    {
+                        var typed1 = node1 as Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax;
+                        var typed2 = node2 as Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax;
+
+                        if (typed1 != null && typed2 != null)
+                        {
+                            return typed1.Identifier.Value.Equals(typed2.Identifier.Value);
+                        }
+                    }
+                    goto default;
+
+
+
+                case SyntaxKind.NamespaceDeclaration:
+                default:
                     string n1 = GetIdentifyer(node1);
                     string n2 = GetIdentifyer(node2);
-                    return n1.Equals(n2);
-
-                default:
-                    return false;
-
-            }
-            throw new NotImplementedException();
+                    return n1.Equals(n2);                                    
+            }            
         }
 
         private static string GetIdentifyer(SyntaxNode node)

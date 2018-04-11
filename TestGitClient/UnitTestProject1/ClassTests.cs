@@ -1,30 +1,31 @@
-﻿using System;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using TestGitClient;
 
 namespace UnitTestProject1
 {
     [TestClass]
-    public class NamespaceTests
-    {      
+    public class ClassTests
+    {
         [TestMethod]
-        public void TestNamespaceIdentical()
+        public void TestClassIdentical()
         {
-            var from = TreeHelper.SyntaxTreeFromString(" namespace test{  public class Foo1{}}");
-            var to = TreeHelper.SyntaxTreeFromString(" namespace test{  public class Foo1{}}");
+            var from = TreeHelper.SyntaxTreeFromString(" public class Foo1{}");
+            var to = TreeHelper.SyntaxTreeFromString(" public class Foo1{}");
+            Assert.AreEqual(1, to.childs.Count);    // to and from should be compilation unit
+            Assert.AreEqual(1, from.childs.Count);
 
-            var foo = TreeComparison.FindBelongingThing(from, to);
+            var foo = TreeComparison.FindBelongingThing(from.childs[0], to.childs[0]);
             Assert.IsNotNull(foo);
             Assert.IsFalse(foo.wasModified);
-            Assert.AreEqual(ModificationKind.noModification,foo.howModified);
+            Assert.AreEqual(ModificationKind.noModification, foo.howModified);
 
         }
-               
+
         [TestMethod]
-        public void TestNamespaceContentChanged()
+        public void TestClassContentChanged()
         {
-            var from = TreeHelper.SyntaxTreeFromString(" namespace test{  public class Foo1{}}");
-            var to = TreeHelper.SyntaxTreeFromString(" namespace test{  public class Foo2{}}");
+            var from = TreeHelper.SyntaxTreeFromString(" public class Foo1{}");
+            var to = TreeHelper.SyntaxTreeFromString(" public class Foo1{ public void test(){} }");
 
             Assert.AreEqual(1, to.childs.Count);    // to and from should be compilation unit
             Assert.AreEqual(1, from.childs.Count);
@@ -35,14 +36,13 @@ namespace UnitTestProject1
             Assert.IsNotNull(foo.treeNode);
             Assert.IsFalse(foo.wasModified);
             Assert.AreEqual(ModificationKind.contentChanged, foo.howModified);
-            Assert.IsTrue(foo.treeNode.node.ToFullString().Contains("Foo2"));
         }
 
         [TestMethod]
-        public void TestNamespaceRenamed()
+        public void TestClassRenamed()
         {
-            var from = TreeHelper.SyntaxTreeFromString(" namespace test{  public class Foo1{}}");
-            var to = TreeHelper.SyntaxTreeFromString(" namespace test2{  public class Foo1{}}");
+            var from = TreeHelper.SyntaxTreeFromString(" public class Foo1{}");
+            var to = TreeHelper.SyntaxTreeFromString(" public class Foo2{}");
 
             Assert.AreEqual(1, to.childs.Count);    // to and from should be compilation unit
             Assert.AreEqual(1, from.childs.Count);
@@ -53,7 +53,6 @@ namespace UnitTestProject1
             Assert.IsNotNull(foo.treeNode);
             Assert.IsTrue(foo.wasModified);
             Assert.AreEqual(ModificationKind.nameChanged, foo.howModified);
-            Assert.IsTrue(foo.treeNode.node.ToFullString().Contains("Foo1"));
         }
     }
 }
