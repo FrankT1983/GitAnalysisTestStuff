@@ -5,7 +5,7 @@ using System.Xml.Serialization;
 
 namespace TestGitClient
 {
-    public partial class Graph
+    public class Graph
     {
 
         private IList<Node> nodes = new List<Node>();

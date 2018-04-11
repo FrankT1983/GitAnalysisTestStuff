@@ -28,16 +28,11 @@ namespace TestGitClient
             var lokalPath = this.LokalPath.Text;
             this.OutputBox.Children.Clear();
 
-
             bool usedLokal = false;
             try
-            {
-                usedLokal = OutputLokalRepo(lokalPath);
-            }
+            {   usedLokal = OutputLokalRepo(lokalPath); }
             catch (Exception ex)
-            {
-                Output(ex.ToString());
-            }
+            {   Output(ex.ToString());  }
 
 
             if (!usedLokal)
@@ -63,23 +58,24 @@ namespace TestGitClient
         {
             bool usedLokal;
             using (var repo = new Repository(lokalPath))
-            {                
+            {
                 Output("found Repo:" + repo.Info.Path);
                 usedLokal = true;
-               
+
 
                 var graph = new Graph();
 
-                var authorNodes = new Dictionary<string,Node>();
+                var authorNodes = new Dictionary<string, Node>();
                 var fileNodes = new Dictionary<string, Node>();
+                var previousTrees = new Dictionary<string, SyntakTreeDecorator>();  // todo: this is inefficent, could drop commits, that are note useded anymore
                 var allNodes = new List<Node>();
                 var allLinks = new List<Edge>();
                 int i = 0;
                 Node lastCommit = null;
 
-                var commits = new List<Commit>(repo.Commits);                               
+                var commits = new List<Commit>(repo.Commits);
                 commits.Sort((a, b) => a.Author.When.CompareTo(b.Author.When));
-                
+
                 foreach (Commit commit in commits)
                 {
                     Node authorNode = null;
@@ -90,11 +86,11 @@ namespace TestGitClient
                         authorNodes.Add(commit.Author.Email, authorNode);
                     }
                     authorNode = authorNodes[commit.Author.Email];
-                    
+
                     i++;
                     if (i > 5) break;
 
-                    var commitNode = new Node(commit.Id.Sha, Node.NodeType.Commit, commit.Message);
+                    var commitNode = new Node(commit.Id.Sha, Node.NodeType.Commit, commit.Message.Trim());
                     allNodes.Add(commitNode);
                     allLinks.Add(new Edge(authorNode, commitNode, Edge.LinkType.Author));
 
@@ -108,7 +104,7 @@ namespace TestGitClient
                     foreach (var parent in commit.Parents)
                     {
                         hasParrents = true;
-                        var changes = repo.Diff.Compare<TreeChanges>(parent.Tree, commit.Tree);                        
+                        var changes = repo.Diff.Compare<TreeChanges>(parent.Tree, commit.Tree);
                         foreach (TreeEntryChanges change in changes)
                         {
                             //Output(String.Format("{0} : {1}", change.Status, change.Path));
@@ -122,7 +118,21 @@ namespace TestGitClient
                             if (!change.Path.EndsWith(".cs")) { continue; }
 
                             fileNode.Type = Node.NodeType.FileCS;
-                            ParseCsFileAndAddToGraph(allNodes, allLinks, commit, change.Path, fileNode);
+
+                            var subEdges = new List<Edge>();
+                            var subNodes = new List<Node>();
+                            var enrichedTree = TreeHelper.ParseCsFileAndAddToGraph(subNodes, subEdges, commit, change.Path, fileNode);
+                            allLinks.AddRange(subEdges);
+                            allNodes.AddRange(subNodes);
+
+                            previousTrees.Add(ContructCommitTreeIdentifyer(commit.Sha,change.Path), enrichedTree);
+
+                            SyntakTreeDecorator prefTree;
+                            if (previousTrees.TryGetValue(ContructCommitTreeIdentifyer(parent.Sha, change.Path), out prefTree))
+                            {
+                                var transitionEdges = new List<Edge>();
+                                CompareTressAndCreateLinks(enrichedTree, prefTree, transitionEdges);
+                            }
                         }
                     }
 
@@ -143,6 +153,41 @@ namespace TestGitClient
             return usedLokal;
         }
 
+        static private string ContructCommitTreeIdentifyer(string comitSha, string filePath)
+        {
+            return comitSha + "|" + filePath;
+        }
+
+        private static void CompareTressAndCreateLinks(SyntakTreeDecorator fromTree, SyntakTreeDecorator tooTree, List<Edge> transitionEdges)
+        {
+            var thisLevelsEdges = new List<Edge>();
+
+            foreach(var from in fromTree.childs)
+            {
+                var to = TreeComparison.FindBelongingThing(from, tooTree.childs);
+
+                if (to != null)
+                {
+                    if (to.wasModified)
+                    {
+                        transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.LinkType.NoCodeChange));
+                        continue;
+                    }
+                    else
+                    {
+                        transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.LinkType.CodeChanged));
+                    }
+                }
+                else
+                {
+                    // probally deleted
+                }
+            }
+
+            // track which kinds where found ... rest was probably  created
+            // todo: I should realy unit-test this.
+        }       
+
         private void AddInitialCommitToGraph(Dictionary<string, Node> fileNodes, List<Node> allNodes, List<Edge> allLinks, Commit commit, Node commitNode)
         {
             var tree = commit.Tree;
@@ -155,7 +200,7 @@ namespace TestGitClient
 
                 if (!element.Path.EndsWith(".cs")) { continue; }
                 fileNode.Type = Node.NodeType.FileCS;
-                ParseCsFileAndAddToGraph(allNodes, allLinks, commit, element.Path, fileNode);
+                TreeHelper.ParseCsFileAndAddToGraph(allNodes, allLinks, commit, element.Path, fileNode);
             }
         }
 
@@ -174,57 +219,9 @@ namespace TestGitClient
             }
             return result;
         }
-
-        private void ParseCsFileAndAddToGraph(List<Node> allNodes, List<Edge> allLinks, Commit commit, string path, Node fileNode)
-        {
-            var blob = commit.Tree[path].Target as Blob;
-            if (blob != null)
-            {
-                var contentStream = blob.GetContentStream();
-                using (var tr = new StreamReader(contentStream, Encoding.UTF8))
-                {
-                    string content = tr.ReadToEnd();
-                    var foo = CSharpSyntaxTree.ParseText(content);
-
-                    var subEdges = new List<Edge>();
-                    var subNodes = new List<Node>();                    
-                    AddChildsToNodes(foo.GetRoot(), fileNode, allNodes, allLinks);
-
-                    allLinks.AddRange(subEdges);
-                    allNodes.AddRange(subNodes);
-                }
-            }
-        }
-
-        int nodeId = 0;
-
-        private void AddChildsToNodes(SyntaxNode rootNode, Node fileNode, List<Node> allNodes, List<Edge> allLinks)
-        {
-            var kind = rootNode.Kind();
-            // break early for stuff
-            if (
-                (kind == SyntaxKind.UsingDirective) 
-                || (kind == SyntaxKind.SimpleBaseType) || (kind == SyntaxKind.ParameterList) || (kind == SyntaxKind.ExpressionStatement) || (kind == SyntaxKind.LocalDeclarationStatement) || (kind == SyntaxKind.NotEqualsExpression)
-                || (kind == SyntaxKind.EnumMemberDeclaration) || (kind == SyntaxKind.FieldDeclaration)
-                || (kind == SyntaxKind.ClassDeclaration)
-                )
-            {   return; }
-            
-            var childs = rootNode.ChildNodes();
-            foreach(var c in childs)
-            {                
-                var n = new Node(nodeId.ToString(),c.Kind().ToString(),"test");
-                n.FullContent = c.ToFullString().Trim();
-                n.SyntaxNode = c;
-                nodeId++;
-
-                allNodes.Add(n);
-                allLinks.Add(new Edge(fileNode, n, Edge.LinkType.Generic));
-
-                AddChildsToNodes(c, n, allNodes, allLinks);
-            }           
-        }             
-
+               
+               
+        
         private void Output(string ex)
         {
             System.Console.WriteLine(ex);

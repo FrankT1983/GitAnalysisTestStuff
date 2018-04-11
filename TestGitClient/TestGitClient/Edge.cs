@@ -12,6 +12,8 @@ namespace TestGitClient
             NextCommit,
             Author,
             FileModification,
+            NoCodeChange,
+            CodeChanged,
         }
 
         public Edge(Node f, Node t, LinkType linkType)
