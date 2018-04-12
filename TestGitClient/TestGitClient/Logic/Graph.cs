@@ -2,14 +2,15 @@
 using FPar.GEXF;
 using System.Xml;
 using System.Xml.Serialization;
+using System;
 
 namespace TestGitClient
 {
     public class Graph
     {
 
-        private IList<Node> nodes = new List<Node>();
-        private IList<Edge> edgedes = new List<Edge>();
+        private List<Node> nodes = new List<Node>();
+        private List<Edge> edgedes = new List<Edge>();
 
 
         public void Serialize(string path)
@@ -19,6 +20,7 @@ namespace TestGitClient
             foo.graph = new graphcontent();
 
             string NodeTypeId = "NodeTypeAttribute";
+            string NodeTypeFullContent = "NodeFullContent";
             var nodeAttributes = new attributescontent
             {
                 @class = classtype.node,
@@ -29,7 +31,13 @@ namespace TestGitClient
                                     id = NodeTypeId,
                                     title = "NodeType",
                                     type = attrtypetype.@string
-                                }
+                                },
+                                  new attributecontent
+                                {
+                                    id = NodeTypeFullContent,
+                                    title = "FullContent",
+                                    type = attrtypetype.@string
+                                },
                             }
             };
 
@@ -72,7 +80,12 @@ namespace TestGitClient
                                                 {
                                                     @for = NodeTypeId,
                                                     value = (nc.Type != Node.NodeType.Syntax ) ? nc.Type.ToString() : nc.Type.ToString() + " " + nc.SyntaxType
-                                                }
+                                                },
+                                                new attvalue
+                                                {
+                                                    @for = NodeTypeFullContent,
+                                                    value = (nc.FullContent != null) ? nc.FullContent : "",
+                                                },
                                             }
                                         }
                                     };
@@ -124,6 +137,21 @@ namespace TestGitClient
                 var serializer = new XmlSerializer(typeof(gexfcontent));
                 serializer.Serialize(file, foo);
             }
+        }
+
+        internal List<Edge> GetEdgesFrom(Node n)
+        {
+            return this.edgedes.FindAll(e => e.from.Equals(n));
+        }
+
+        internal List<Edge> GetEdgesFrom(Node n, Edge.EdgeType edgeType)
+        {
+            return this.edgedes.FindAll(e => e.type.Equals(edgeType) && e.from.Equals(n));
+        }
+
+        internal List<Node> GetNodesOfType(Node.NodeType searchtype)
+        {                                 
+            return this.nodes.FindAll( n => n.Type == searchtype);
         }
 
         internal void Add(List<Node> toAdd)

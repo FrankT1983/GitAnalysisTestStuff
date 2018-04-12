@@ -168,8 +168,9 @@ namespace TestGitClient
         public static FindBelongingResult FindBelongingThing(SyntakTreeDecorator toFind, List<SyntakTreeDecorator> possibleMatches)
         {
             var toFindContentString = ContentString(toFind.node);
+            var toFindFullString = toFind.node.ToFullString().Trim();
             {
-                var identical = possibleMatches.Find(n => n.node.ToFullString().Equals(toFind.node.ToFullString()));
+                var identical = possibleMatches.Find(n => n.node.ToFullString().Trim().Equals(toFindFullString));
                 if (identical != null)
                 {
                     return new FindBelongingResult() { treeNode = identical, wasModified = false, howModified = ModificationKind.noModification };
@@ -181,7 +182,6 @@ namespace TestGitClient
                     return new FindBelongingResult() { treeNode = equiv, wasModified = false , howModified = ModificationKind.noModification};
                 }
             }
-
 
             {
                 var sameKind = possibleMatches.FindAll(n => n.node.Kind().Equals(toFind.node.Kind()));

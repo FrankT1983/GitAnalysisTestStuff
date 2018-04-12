@@ -22,11 +22,16 @@ namespace TestGitClient
         public string FullContent { get; set; }
         public SyntaxNode SyntaxNode { get; internal set; }
 
-        public Node(string nodeId, NodeType nodeType, string content)
+        public Node(string nodeId, NodeType nodeType, string content) : this(nodeId, nodeType, content, "")
+        {          
+        }
+
+        public Node(string nodeId, NodeType nodeType, string content, string fullContent)
         {
             this.Type = nodeType;
             this.Id = nodeId;
             this.Content = content;
+            this.FullContent = fullContent;
         }
 
         public Node(string nodeId, string nodeType, string content)

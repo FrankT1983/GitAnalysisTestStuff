@@ -3,9 +3,28 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+         xmlns:graphsharp="clr-namespace:GraphSharp.Controls;assembly=GraphSharp.Controls"
         xmlns:local="clr-namespace:TestGitClient"
         mc:Ignorable="d"
         Title="MainWindow" Height="350" Width="525">
+    <Window.Resources>
+        <Style TargetType="{x:Type graphsharp:VertexControl}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type graphsharp:VertexControl}">
+                        <Border BorderThickness="1" BorderBrush="Black">
+                            <Grid MouseLeftButtonDown="OnClickedNode">
+                                <Label Content="{Binding Path=Node.Content, FallbackValue=VertexId}" />
+                            </Grid>
+                        </Border>
+                        
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    
+    
     <Grid>
         <DockPanel>
             <DockPanel DockPanel.Dock="Top">
@@ -15,9 +34,32 @@
                     <TextBox x:Name="LokalPath">C:/Tmp/GitTest2</TextBox>
                 </StackPanel>
             </DockPanel>
-            <VirtualizingStackPanel x:Name="OutputBox">
-                
+            <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Auto">
+            <StackPanel Orientation="Horizontal"  x:Name="CommitPane">                
+                <Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button>
+            </StackPanel>
+            </ScrollViewer>
+            <VirtualizingStackPanel DockPanel.Dock="Bottom" x:Name="OutputBox">                
             </VirtualizingStackPanel>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="300"/>
+                    <ColumnDefinition Width="3" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <graphsharp:GraphLayout x:Name="GraphDisplay"                                    
+                                    LayoutAlgorithmType="FR"
+                                    OverlapRemovalAlgorithmType="FSA"                                    
+                                    HighlightAlgorithmType="Simple">
+                </graphsharp:GraphLayout>
+
+                <GridSplitter Grid.Column="1"  HorizontalAlignment="Stretch"  />
+
+                <VirtualizingStackPanel Grid.Column="2" x:Name="CodeDisplay">
+                </VirtualizingStackPanel>
+            </Grid>                    
         </DockPanel>
     </Grid>
 </Window>

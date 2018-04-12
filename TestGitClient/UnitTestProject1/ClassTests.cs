@@ -54,5 +54,43 @@ namespace UnitTestProject1
             Assert.IsTrue(foo.wasModified);
             Assert.AreEqual(ModificationKind.nameChanged, foo.howModified);
         }
+
+        [TestMethod]
+        public void TestMethodAdded()
+        {
+            var from = TreeHelper.SyntaxTreeFromString(" public void Print(){Console.WriteLine(\"HalloWelt\");}"); ;
+            var to = TreeHelper.SyntaxTreeFromString(" public void Print(){Console.WriteLine(\"HalloWelt\");}  public void Print2(){Console.WriteLine(\"blub blub\");}"); 
+
+            Assert.AreEqual(1, from.childs.Count);
+            Assert.AreEqual(2, to.childs.Count);    // first level is compilation unit
+            
+
+            var foo = TreeComparison.FindBelongingThing(from.childs[0], to.childs);
+            // gues that the namespace was renamed
+            Assert.IsNotNull(foo);
+            Assert.IsNotNull(foo.treeNode);
+            Assert.IsFalse(foo.wasModified);
+            Assert.AreEqual(ModificationKind.noModification, foo.howModified);
+            Assert.IsTrue(foo.treeNode.node.ToFullString().Contains("Hallo"));
+        }
+
+        [TestMethod]
+        public void TestMethodAdded2()
+        {
+            var from = TreeHelper.SyntaxTreeFromString(" public void Print(){Console.WriteLine(\"HalloWelt\");}"); ;
+            var to = TreeHelper.SyntaxTreeFromString("public void Print2(){Console.WriteLine(\"blub blub\");}  public void Print(){Console.WriteLine(\"HalloWelt\");}  ");
+
+            Assert.AreEqual(1, from.childs.Count);
+            Assert.AreEqual(2, to.childs.Count);    // first level is compilation unit
+
+
+            var foo = TreeComparison.FindBelongingThing(from.childs[0], to.childs);
+            // gues that the namespace was renamed
+            Assert.IsNotNull(foo);
+            Assert.IsNotNull(foo.treeNode);
+            Assert.IsFalse(foo.wasModified);
+            Assert.AreEqual(ModificationKind.noModification, foo.howModified);
+            Assert.IsTrue(foo.treeNode.node.ToFullString().Contains("Hallo"));
+        }
     }
 }

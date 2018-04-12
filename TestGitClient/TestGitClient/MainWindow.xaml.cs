@@ -7,6 +7,13 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using TestGitClient.Logic;
+using System.Windows.Controls.Primitives;
+using QuickGraph;
+using System.Threading.Tasks;
+using System.ComponentModel;
+using System.Windows.Media;
+using GraphSharp.Controls;
 
 namespace TestGitClient
 {
@@ -16,26 +23,31 @@ namespace TestGitClient
     /// </summary>
     public partial class MainWindow : Window
     {
+        private Graph currentGraph;
+        private BackgroundWorker worker = new BackgroundWorker();        
+
         public MainWindow()
         {
+            CreateGraphToVisualize();
             InitializeComponent();
         }
 
         // todo: early test .... needs refactoring and seperation ov ViewModel and Model
+        // todo: this should happen asyncronously
         private void OnTry(object sender, RoutedEventArgs e)
-        {
+        {                       
             var url = this.UrlInput.Text;
             var lokalPath = this.LokalPath.Text;
             this.OutputBox.Children.Clear();
 
-            bool usedLokal = false;
+            Graph g = null;
             try
-            {   usedLokal = OutputLokalRepo(lokalPath); }
+            {   g = GraphFactory.GraphFromRepoFolder(lokalPath); }
             catch (Exception ex)
             {   Output(ex.ToString());  }
 
 
-            if (!usedLokal)
+            if (g == null)
             {
                 // try opening
                 try
@@ -43,204 +55,191 @@ namespace TestGitClient
                     Output("Starting clone");
                     Repository.Clone(url, lokalPath);
                     Output("Clone finished");
-                    OutputLokalRepo(lokalPath);
+                    g = GraphFactory.GraphFromRepoFolder(lokalPath); 
                 }
                 catch (Exception ex)
                 {
                     Output(ex.ToString());
                 }
+            }    
+            
+            if (g!= null)
+            {
+                g.Serialize("Test.GEXF");
+
+                currentGraph = g;
+                var commitNodes = g.GetNodesOfType( Node.NodeType.Commit);
+                this.CommitPane.Children.Clear();
+                foreach (var n in commitNodes)
+                {
+                    var button = new ToggleButton();
+                    button.Content = n.Content;
+                    button.Click+= (o,i) => this.CommitButtonPressed( n );
+                    this.CommitPane.Children.Add(button);
+                }
+            }
+        }
+
+        private void CreateGraphToVisualize()
+        {
+            var g = new BidirectionalGraph<object, IEdge<object>>();
+
+            //add the vertices to the graph
+            string[] vertices = new string[5];
+            for (int i = 0; i < 5; i++)
+            {
+                vertices[i] = i.ToString();
+                g.AddVertex(vertices[i]);
             }
 
-            this.Close();
+            //add some edges to the graph
+            g.AddEdge(new Edge<object>(vertices[0], vertices[1]));
+            g.AddEdge(new Edge<object>(vertices[1], vertices[2]));
+            g.AddEdge(new Edge<object>(vertices[2], vertices[3]));
+            g.AddEdge(new Edge<object>(vertices[3], vertices[1])); 
+            g.AddEdge(new Edge<object>(vertices[1], vertices[4]));
+            
         }
 
-        private bool OutputLokalRepo(string lokalPath)
+        private void CommitButtonPressed(Node n)
         {
-            bool usedLokal;
-            using (var repo = new Repository(lokalPath))
+            this.GraphDisplay.Graph = AddNodeToDisplay(n);
+            VieWCode(this.CodeDisplay, n);
+        }
+
+        private void VieWCode(VirtualizingStackPanel codeDisplay, Node n)
+        {
+            codeDisplay.Children.Clear();
+            if (n.Type == Node.NodeType.Syntax)
             {
-                Output("found Repo:" + repo.Info.Path);
-                usedLokal = true;
-
-
-                var graph = new Graph();
-
-                var authorNodes = new Dictionary<string, Node>();
-                var fileNodes = new Dictionary<string, Node>();
-                var previousTrees = new Dictionary<string, SyntakTreeDecorator>();  // todo: this is inefficent, could drop commits, that are note useded anymore
-                var allNodes = new List<Node>();
-                var allEdges = new List<Edge>();
-                int i = 0;
-                Node lastCommit = null;
-
-                var commits = new List<Commit>(repo.Commits);
-                commits.Sort((a, b) => a.Author.When.CompareTo(b.Author.When));
-
-                foreach (Commit commit in commits)
+                var lines = n.FullContent.Split('\n');
+                foreach(var l in lines)
                 {
-                    Node authorNode = null;
-                    if (!authorNodes.ContainsKey(commit.Author.Email))
-                    {
-                        authorNode = new Node(commit.Author.Name, Node.NodeType.Person, commit.Author.Name);
-                        allNodes.Add(authorNode);
-                        authorNodes.Add(commit.Author.Email, authorNode);
-                    }
-                    authorNode = authorNodes[commit.Author.Email];
-
-                    i++;
-                    if (i > 5) break;
-
-                    var commitNode = new Node(commit.Id.Sha, Node.NodeType.Commit, commit.Message.Trim());
-                    allNodes.Add(commitNode);
-                    allEdges.Add(new Edge(authorNode, commitNode, Edge.EdgeType.Author));
-
-                    if (lastCommit != null)
-                    {
-                        allEdges.Add(new Edge(lastCommit, commitNode, Edge.EdgeType.NextCommit));
-                    }
-                    lastCommit = commitNode;
-
-                    bool hasParrents = false;
-                    foreach (var parent in commit.Parents)
-                    {
-                        hasParrents = true;
-                        var changes = repo.Diff.Compare<TreeChanges>(parent.Tree, commit.Tree);
-                        foreach (TreeEntryChanges change in changes)
-                        {
-                            //Output(String.Format("{0} : {1}", change.Status, change.Path));
-
-                            var fileNode = new Node(change.Path + commit.Id, Node.NodeType.File, change.Path);
-                            Node oldFileNode = GetOldVersionOfFile(fileNodes, allEdges, change.Path, fileNode);
-
-                            allNodes.Add(fileNode);
-                            allEdges.Add(new Edge(commitNode, fileNode, Edge.EdgeType.HierarchialyAbove));
-
-                            if (!change.Path.EndsWith(".cs")) { continue; }
-
-                            fileNode.Type = Node.NodeType.FileCS;
-
-                            var subEdges = new List<Edge>();
-                            var subNodes = new List<Node>();
-                            var enrichedTree = TreeHelper.ParseCsFileAndAddToGraph(subNodes, subEdges, commit, change.Path, fileNode);
-                            allEdges.AddRange(subEdges);
-                            allNodes.AddRange(subNodes);
-
-                            previousTrees.Add(ContructCommitTreeIdentifyer(commit.Sha,change.Path), enrichedTree);
-
-                            SyntakTreeDecorator prefTree;
-                            if (previousTrees.TryGetValue(ContructCommitTreeIdentifyer(parent.Sha, change.Path), out prefTree))
-                            {
-                                var transitionEdges = new List<Edge>();
-                                CompareTressAndCreateEdges( prefTree, enrichedTree, transitionEdges);
-                                allEdges.AddRange(transitionEdges);
-                            }
-                        }
-                    }
-
-                    if (!hasParrents)
-                    {
-                        AddInitialCommitToGraph(fileNodes, allNodes, allEdges, commit, commitNode, previousTrees);
-                    }
+                    var lab = new TextBlock();
+                    lab.Text = l;
+                    codeDisplay.Children.Add(lab);
                 }
-
-                graph.Add(allNodes);
-                graph.Add(allEdges);
-
-                graph.Serialize("Test.GEXF");
-
-                Output("Finished");
             }
-
-            return usedLokal;
         }
 
-        static private string ContructCommitTreeIdentifyer(string comitSha, string filePath)
-        {
-            return comitSha + "|" + filePath;
-        }
+        private BidirectionalGraph<object, IEdge<object>> AddNodeToDisplay(Node n)
+        {          
+            var g = new BidirectionalGraph<object, IEdge<object>>();
+            var dn = new DisplayNode(n);
+            g.AddVertex(dn);
+            var handledVertexes = new Dictionary<Node,DisplayNode>();
 
-        private static void CompareTressAndCreateEdges(SyntakTreeDecorator fromTree, SyntakTreeDecorator tooTree, List<Edge> transitionEdges)
-        {
-            var thisLevelsEdges = new List<Edge>();
-
-            foreach(var from in fromTree.childs)
+            handledVertexes.Add(n ,dn);
+            var edges = currentGraph.GetEdgesFrom(n, Edge.EdgeType.HierarchialyAbove);
+            while (edges.Count > 0)
             {
-                var to = TreeComparison.FindBelongingThing(from, tooTree.childs);
-
-                if (to != null)
+                var nextNodes = new List<Node>();
+                foreach (var e in edges)
                 {
-                    if (!to.wasModified)
+                    if (!handledVertexes.ContainsKey(e.to))
                     {
-                        transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.EdgeType.NoCodeChange));
-                        continue;
+                        var de = new DisplayNode(e.to);
+                        g.AddVertex(de);
+                        handledVertexes.Add(e.to, de);
+                        nextNodes.Add(e.to);
                     }
-                    else
-                    {
-                        switch (to.howModified)
-                        {
-                            case ModificationKind.nameChanged:
-                                transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.EdgeType.CodeChangedRename));
-                                break;
-                            default:
-                                transitionEdges.Add(new Edge(from.equivilantGraphNode, to.treeNode.equivilantGraphNode, Edge.EdgeType.CodeChanged));
-                                break;
-                        }                       
-                    }
-
-                    CompareTressAndCreateEdges(from, to.treeNode, transitionEdges);
+                    g.AddEdge(new Edge<object>(handledVertexes[e.from], handledVertexes[e.to]));
                 }
-                else
+
+                edges.Clear();
+
+                foreach (var next in nextNodes)
                 {
-                    // probally deleted
+                    var nextEdge = currentGraph.GetEdgesFrom(next);
+                    edges.AddRange(nextEdge);
                 }
             }
 
-            // track which kinds where found ... rest was probably  created
-            // todo: I should realy unit-test this.
-        }       
-
-        private void AddInitialCommitToGraph(Dictionary<string, Node> fileNodes, List<Node> allNodes, List<Edge> allEdges, Commit commit, Node commitNode, Dictionary<string, SyntakTreeDecorator> previousTrees)
-        {
-            var tree = commit.Tree;
-            foreach (var element in tree)
-            {
-                var fileNode = new Node(element.Path + commit.Id, Node.NodeType.File, element.Path);
-                fileNodes.Add(element.Path, fileNode);
-                allNodes.Add(fileNode);
-                allEdges.Add(new Edge(commitNode, fileNode, Edge.EdgeType.HierarchialyAbove));
-
-                if (!element.Path.EndsWith(".cs")) { continue; }
-                fileNode.Type = Node.NodeType.FileCS;
-                var enrichedTree = TreeHelper.ParseCsFileAndAddToGraph(allNodes, allEdges, commit, element.Path, fileNode);
-
-                previousTrees.Add(ContructCommitTreeIdentifyer(commit.Sha, element.Path), enrichedTree);
-            }
+            return g;                         
         }
 
-        private static Node GetOldVersionOfFile(Dictionary<string, Node> fileNodes, List<Edge> allEdges, string path, Node fileNode)
-        {
-            Node result = null;
-            if (!fileNodes.ContainsKey(path))
-            {
-                fileNodes.Add(path, fileNode);
-            }
-            else
-            {
-                result = fileNodes[path];
-                allEdges.Add(new Edge(result, fileNode, Edge.EdgeType.FileModification));
-                fileNodes[path] = fileNode;
-            }
-            return result;
-        }
-               
-               
-        
         private void Output(string ex)
         {
             System.Console.WriteLine(ex);
             var lab = new TextBlock();
             lab.Text = ex;
             this.OutputBox.Children.Add(lab);
+        }
+
+
+
+        private Node nodeInEditor = null;
+        private void OnClickedNode(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            var v = FindParent<VertexControl>(sender as DependencyObject);
+            if (v == null) { return; }
+            var dn = v.Vertex as DisplayNode;
+            if (dn == null) { return; }
+            var node = dn.Node ;
+            if (node == null) { return; }
+
+
+            if (this.nodeInEditor != node)
+            {
+                VieWCode(this.CodeDisplay, node);
+                this.nodeInEditor = node;
+            }           
+        }
+
+        public static T FindParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            if (child == null)
+            { return null; }
+                        
+            DependencyObject parentObject = VisualTreeHelper.GetParent(child);            
+            if (parentObject == null) return null;
+            
+            T parent = parentObject as T;
+            if (parent != null)
+                return parent;
+            else
+                return FindParent<T>(parentObject);
+        }
+    }
+
+    internal class DisplayNode : DependencyObject
+    {
+
+
+        public Node Node
+        {
+            get { return (Node)GetValue(NodeProperty); }
+            set { SetValue(NodeProperty, value); }
+        }
+
+        // Using a DependencyProperty as the backing store for Node.  This enables animation, styling, binding, etc...
+        public static readonly DependencyProperty NodeProperty =
+            DependencyProperty.Register("Node", typeof(Node), typeof(DisplayNode), new PropertyMetadata(null));                      
+       
+        public DisplayNode(Node n )
+        {
+            this.Node = n;
+        }       
+
+        public bool IsSelected
+        {
+            get { return (bool)GetValue(IsSelectedProperty); }
+            set { SetValue(IsSelectedProperty, value); }
+        }
+
+        // Using a DependencyProperty as the backing store for IsSelected.  This enables animation, styling, binding, etc...
+        public static readonly DependencyProperty IsSelectedProperty =
+            DependencyProperty.Register("IsSelected", typeof(bool), typeof(DisplayNode), new PropertyMetadata(false));
+
+
+
+    }
+
+    internal class DebugHelper
+    {
+        internal static void BreakIntoDebug()
+        {
+            int i = 0;
         }
     }
 }
