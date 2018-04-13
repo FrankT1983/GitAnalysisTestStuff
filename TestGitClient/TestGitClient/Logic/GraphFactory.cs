@@ -10,8 +10,7 @@ namespace TestGitClient.Logic
     public class GraphFactory
     {
         static public  Graph GraphFromRepoFolder(string lokalPath)
-        {
-            bool usedLokal;
+        {            
             using (var repo = new Repository(lokalPath))
             {                            
                 var graph = new Graph();

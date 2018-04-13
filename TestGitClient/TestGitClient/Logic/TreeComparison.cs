@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using LibGit2Sharp;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace TestGitClient
 {
@@ -54,15 +55,17 @@ namespace TestGitClient
             return enrichedTree;
         }
 
-        static public List<SyntakTreeDecorator> AddChildsToNodes(SyntaxNode rootNode, Node fileNode, List<Node> allNodes, List<Edge> allEdges)
+        static public List<SyntakTreeDecorator> AddChildsToNodes(SyntaxNode rootNode, Node parentGraphNode, List<Node> allNodes, List<Edge> allEdges)
         {
             var kind = rootNode.Kind();
             // break early for stuff
             if (
                 (kind == SyntaxKind.UsingDirective)
                 || (kind == SyntaxKind.SimpleBaseType) || (kind == SyntaxKind.ParameterList) || (kind == SyntaxKind.ExpressionStatement) || (kind == SyntaxKind.LocalDeclarationStatement) || (kind == SyntaxKind.NotEqualsExpression)
-                || (kind == SyntaxKind.EnumMemberDeclaration) || (kind == SyntaxKind.FieldDeclaration)
+                || (kind == SyntaxKind.EnumMemberDeclaration) || (kind == SyntaxKind.FieldDeclaration) || (kind == SyntaxKind.AttributeList)
+                || (kind == SyntaxKind.ConstructorDeclaration) || (kind == SyntaxKind.MethodDeclaration) || (kind == SyntaxKind.DestructorDeclaration)
                 //|| (kind == SyntaxKind.ClassDeclaration)
+                || (kind == SyntaxKind.Block)
                 )
             { return null; }
 
@@ -82,7 +85,18 @@ namespace TestGitClient
                 nodeId++;
 
                 if (allNodes != null) { allNodes.Add(n); }
-                if (fileNode != null) { allEdges.Add(new Edge(fileNode, n, Edge.EdgeType.Generic)); }
+                if (parentGraphNode != null)
+                {
+                    switch (parentGraphNode.Type)
+                    {
+                        case Node.NodeType.Syntax:
+                            allEdges.Add(new Edge(parentGraphNode, n, Edge.EdgeType.SyntaxHierarchialyAbove)); break;
+                        case Node.NodeType.FileCS:
+                            allEdges.Add(new Edge(parentGraphNode, n, Edge.EdgeType.InFile)); break;
+                        default:
+                            allEdges.Add(new Edge(parentGraphNode, n, Edge.EdgeType.Generic)); break;
+                    }
+                }
 
                 var childtrees = AddChildsToNodes(c, n, allNodes, allEdges);
                 if (childtrees != null) { n2.childs.AddRange(childtrees); }
@@ -217,6 +231,11 @@ namespace TestGitClient
 
         private static string ContentString(SyntaxNode node)
         {
+            if (node is MethodDeclarationSyntax)
+            {
+                return ((MethodDeclarationSyntax)node).Body.ToFullString();
+            }
+
             var b = new StringBuilder();            
             foreach(var c in node.ChildNodes())
             {

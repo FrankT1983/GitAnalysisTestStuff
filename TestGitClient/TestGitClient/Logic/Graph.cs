@@ -3,6 +3,7 @@ using FPar.GEXF;
 using System.Xml;
 using System.Xml.Serialization;
 using System;
+using System.Linq;
 
 namespace TestGitClient
 {
@@ -12,6 +13,13 @@ namespace TestGitClient
         private List<Node> nodes = new List<Node>();
         private List<Edge> edgedes = new List<Edge>();
 
+        public List<Node> Nodes
+        {
+            get
+            {
+                return this.nodes;
+            }
+        }
 
         public void Serialize(string path)
         {
@@ -139,9 +147,106 @@ namespace TestGitClient
             }
         }
 
+        internal Graph GetConnectedSubGraph(Node n, IEnumerable<Edge.EdgeType> allowedConnections, bool biDirectional)
+        {
+            var nodesToCheck = new HashSet<Node>(this.nodes);
+            var edgesToCheck = new HashSet<Edge>(this.edgedes);
+
+            var workingSetNodes = new HashSet<Node>();
+            var workingSetEdges = new List<Edge>();
+            workingSetNodes.Add(n);
+            nodesToCheck.Remove(n);
+
+            bool change = true;
+            while(change)
+            {
+                change = false;
+                IEnumerable<Edge> nextEdges;
+
+                if (biDirectional)
+                { nextEdges = edgesToCheck.Where(e => workingSetNodes.Contains(e.from) || workingSetNodes.Contains(e.to)); }
+                else
+                { nextEdges = edgesToCheck.Where(e => workingSetNodes.Contains(e.from)); }
+
+                if (allowedConnections!= null)
+                {
+                    IEnumerable<Edge> filterd = nextEdges.Where(e => allowedConnections.Contains(e.type));
+                    nextEdges = filterd;
+                }
+
+                nextEdges = nextEdges.ToList(); // collaps link enumerable
+                foreach (var foo in nextEdges) { edgesToCheck.Remove(foo); }
+                workingSetEdges.AddRange(nextEdges);
+
+                foreach (var foo in nextEdges)
+                {
+                    if (!workingSetNodes.Contains(foo.from))
+                    {
+                        workingSetNodes.Add(foo.from);
+                        nodesToCheck.Remove(foo.from);
+                        change = true;
+                    }
+
+                    if (!workingSetNodes.Contains(foo.to))
+                    {
+                        workingSetNodes.Add(foo.to);
+                        nodesToCheck.Remove(foo.to);
+                        change = true;
+                    }
+                }
+            }
+
+            var result  = new Graph();
+            result.edgedes = workingSetEdges;
+            result.nodes.AddRange(workingSetNodes);
+            return result;
+        }
+
+        internal IEnumerable<Node> GetNeighborsOf(Node n)
+        {
+            var edges = GetEdgesFrom(n,this.edgedes);
+            return GetDestinationNodes(edges);
+        }
+
+        internal IEnumerable<Node> GetNeighborsOf(Node n, Node.NodeType type)
+        {
+            var edges = GetEdgesFrom(n, this.edgedes);
+            return GetDestinationNodes(edges, type);
+        }
+
+        private IEnumerable<Node> GetDestinationNodes(List<Edge> list)
+        {
+            foreach(var e in list)
+            {
+                yield return e.to;
+            }
+        }
+
+        private IEnumerable<Node> GetDestinationNodes(List<Edge> list, Node.NodeType type)
+        {
+            foreach (var e in list)
+            {
+                if (e.to.Type == type)
+                {
+                    yield return e.to;
+                }
+            }
+        }
+
+
         internal List<Edge> GetEdgesFrom(Node n)
         {
-            return this.edgedes.FindAll(e => e.from.Equals(n));
+            return GetEdgesFrom(n, this.edgedes);
+        }
+
+        static internal List<Edge> GetEdgesFrom(Node n, List<Edge> edges)
+        {
+            return edges.FindAll(e => e.from.Equals(n));
+        }
+
+        static internal List<Edge> GetEdgesTo(Node n, List<Edge> edges)
+        {
+            return edges.FindAll(e => e.to.Equals(n));
         }
 
         internal List<Edge> GetEdgesFrom(Node n, Edge.EdgeType edgeType)

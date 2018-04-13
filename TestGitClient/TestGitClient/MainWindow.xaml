@@ -3,10 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-         xmlns:graphsharp="clr-namespace:GraphSharp.Controls;assembly=GraphSharp.Controls"
+        xmlns:graphsharp="clr-namespace:GraphSharp.Controls;assembly=GraphSharp.Controls"        
+        xmlns:zoom="clr-namespace:WPFExtensions.Controls;assembly=WPFExtensions"    
         xmlns:local="clr-namespace:TestGitClient"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525">
+        Loaded="OnLoaded"
+        mc:Ignorable="d"       
+        
+        Title="MainWindow" Height="800" Width="1600">
     <Window.Resources>
         <Style TargetType="{x:Type graphsharp:VertexControl}">
             <Setter Property="Template">
@@ -36,7 +39,7 @@
             </DockPanel>
             <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Auto">
             <StackPanel Orientation="Horizontal"  x:Name="CommitPane">                
-                <Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button><Button>SomeTempText</Button>
+                <Button>Commits Go here</Button>
             </StackPanel>
             </ScrollViewer>
             <VirtualizingStackPanel DockPanel.Dock="Bottom" x:Name="OutputBox">                
@@ -44,20 +47,31 @@
 
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="300"/>
+                    <ColumnDefinition Width="15*"/>
+                    <ColumnDefinition Width="3" />                    
+                    <ColumnDefinition Width="30*"/>
                     <ColumnDefinition Width="3" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="100*" />
                 </Grid.ColumnDefinitions>
 
-                <graphsharp:GraphLayout x:Name="GraphDisplay"                                    
+                <TreeView x:Name="FileTree">
+                    
+                </TreeView>
+               
+                <GridSplitter Grid.Column="1"  HorizontalAlignment="Stretch"  />
+
+                <zoom:ZoomControl   Grid.Column="2" >
+                    <graphsharp:GraphLayout                                   
+                                    x:Name="GraphDisplay"                                    
                                     LayoutAlgorithmType="FR"
                                     OverlapRemovalAlgorithmType="FSA"                                    
                                     HighlightAlgorithmType="Simple">
-                </graphsharp:GraphLayout>
+                    </graphsharp:GraphLayout>
+                </zoom:ZoomControl>
 
-                <GridSplitter Grid.Column="1"  HorizontalAlignment="Stretch"  />
 
-                <VirtualizingStackPanel Grid.Column="2" x:Name="CodeDisplay">
+                <GridSplitter Grid.Column="3"  HorizontalAlignment="Stretch"  />
+                <VirtualizingStackPanel Grid.Column="5" x:Name="CodeDisplay">
                 </VirtualizingStackPanel>
             </Grid>                    
         </DockPanel>

@@ -15,6 +15,8 @@ namespace TestGitClient
             NoCodeChange,
             CodeChanged,
             CodeChangedRename,
+            InFile,
+            SyntaxHierarchialyAbove,
         }
 
         public Edge(Node f, Node t, EdgeType edgeType)

@@ -1,19 +1,18 @@
 ﻿using LibGit2Sharp;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
+
 using System.Windows;
 using System.Windows.Controls;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
+
 using TestGitClient.Logic;
 using System.Windows.Controls.Primitives;
 using QuickGraph;
-using System.Threading.Tasks;
+
 using System.ComponentModel;
 using System.Windows.Media;
 using GraphSharp.Controls;
+using System.Linq;
 
 namespace TestGitClient
 {
@@ -28,7 +27,6 @@ namespace TestGitClient
 
         public MainWindow()
         {
-            CreateGraphToVisualize();
             InitializeComponent();
         }
 
@@ -80,44 +78,75 @@ namespace TestGitClient
             }
         }
 
-        private void CreateGraphToVisualize()
-        {
-            var g = new BidirectionalGraph<object, IEdge<object>>();
-
-            //add the vertices to the graph
-            string[] vertices = new string[5];
-            for (int i = 0; i < 5; i++)
-            {
-                vertices[i] = i.ToString();
-                g.AddVertex(vertices[i]);
-            }
-
-            //add some edges to the graph
-            g.AddEdge(new Edge<object>(vertices[0], vertices[1]));
-            g.AddEdge(new Edge<object>(vertices[1], vertices[2]));
-            g.AddEdge(new Edge<object>(vertices[2], vertices[3]));
-            g.AddEdge(new Edge<object>(vertices[3], vertices[1])); 
-            g.AddEdge(new Edge<object>(vertices[1], vertices[4]));
-            
-        }
-
         private void CommitButtonPressed(Node n)
         {
             this.GraphDisplay.Graph = AddNodeToDisplay(n);
-            VieWCode(this.CodeDisplay, n);
+            ViewCode(this.CodeDisplay, n);
+
+            if (n.Type == Node.NodeType.Commit)
+            {
+                var filenodes = currentGraph.GetNeighborsOf(n, Node.NodeType.FileCS);
+
+                FileTree.Items.Clear();
+                var commitItem = new TreeViewItem() {Header = n.Id };                
+                FileTree.Items.Add(commitItem);
+                                
+                foreach(var f in filenodes)
+                {
+                    var item = new TreeViewItem();
+                    item.Header = f.Content;
+                    commitItem.Items.Add(item);
+                }
+                commitItem.ExpandSubtree();
+            }
         }
 
-        private void VieWCode(VirtualizingStackPanel codeDisplay, Node n)
+        Random rnd = new Random();
+        private void ViewCode(VirtualizingStackPanel codeDisplay, Node node)
         {
             codeDisplay.Children.Clear();
-            if (n.Type == Node.NodeType.Syntax)
+            if (node.Type == Node.NodeType.Syntax)
             {
-                var lines = n.FullContent.Split('\n');
+
+                var parents = this.currentGraph.GetConnectedSubGraph(node, new Edge.EdgeType[] { Edge.EdgeType.SyntaxHierarchialyAbove }, true).Nodes;
+                parents.Sort((a, b) => a.SyntaxNode.SpanStart.CompareTo(b.SyntaxNode.SpanStart) );
+
+                int lineOffset = node.SyntaxNode.SpanStart;
+
+                var lines = node.FullContent.Split('\n');
+                int lineNumber = 0;
                 foreach(var l in lines)
                 {
+                    var aboveThisLine = parents.Where(n => lineOffset >= n.SyntaxNode.SpanStart && lineOffset < n.SyntaxNode.Span.End).ToList();
+
+                    
+
+                    var pane = new StackPanel() { Orientation=Orientation.Horizontal };
                     var lab = new TextBlock();
                     lab.Text = l;
-                    codeDisplay.Children.Add(lab);
+
+
+                    for(int i=0; i < aboveThisLine.Count(); i++)
+                    {
+                        var btn = new Button();
+                        btn.Width = 5;
+                        btn.ToolTip = aboveThisLine[i].Content;
+
+                        pane.Children.Add(btn);
+                    }
+
+                    var lineNumberLabel = new TextBlock();
+                    lineNumberLabel.Text = lineNumber.ToString();
+                    lineNumberLabel.Margin = new Thickness(5,0,5,0);                    
+                    pane.Children.Add(lineNumberLabel);
+                    pane.Children.Add(lab);
+
+               
+
+
+                    codeDisplay.Children.Add(pane);
+                    lineNumber++;
+                    lineOffset+=l.Length + 1; // + linebreak?
                 }
             }
         }
@@ -153,7 +182,7 @@ namespace TestGitClient
                     var nextEdge = currentGraph.GetEdgesFrom(next);
                     edges.AddRange(nextEdge);
                 }
-            }
+            }           
 
             return g;                         
         }
@@ -165,9 +194,7 @@ namespace TestGitClient
             lab.Text = ex;
             this.OutputBox.Children.Add(lab);
         }
-
-
-
+        
         private Node nodeInEditor = null;
         private void OnClickedNode(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
@@ -181,7 +208,7 @@ namespace TestGitClient
 
             if (this.nodeInEditor != node)
             {
-                VieWCode(this.CodeDisplay, node);
+                ViewCode(this.CodeDisplay, node);
                 this.nodeInEditor = node;
             }           
         }
@@ -200,46 +227,10 @@ namespace TestGitClient
             else
                 return FindParent<T>(parentObject);
         }
-    }
 
-    internal class DisplayNode : DependencyObject
-    {
-
-
-        public Node Node
+        private void OnLoaded(object sender, RoutedEventArgs e)
         {
-            get { return (Node)GetValue(NodeProperty); }
-            set { SetValue(NodeProperty, value); }
-        }
-
-        // Using a DependencyProperty as the backing store for Node.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty NodeProperty =
-            DependencyProperty.Register("Node", typeof(Node), typeof(DisplayNode), new PropertyMetadata(null));                      
-       
-        public DisplayNode(Node n )
-        {
-            this.Node = n;
-        }       
-
-        public bool IsSelected
-        {
-            get { return (bool)GetValue(IsSelectedProperty); }
-            set { SetValue(IsSelectedProperty, value); }
-        }
-
-        // Using a DependencyProperty as the backing store for IsSelected.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty IsSelectedProperty =
-            DependencyProperty.Register("IsSelected", typeof(bool), typeof(DisplayNode), new PropertyMetadata(false));
-
-
-
-    }
-
-    internal class DebugHelper
-    {
-        internal static void BreakIntoDebug()
-        {
-            int i = 0;
+            this.OnTry(sender, e);
         }
     }
 }
