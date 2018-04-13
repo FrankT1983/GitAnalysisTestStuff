@@ -13,6 +13,7 @@ using System.ComponentModel;
 using System.Windows.Media;
 using GraphSharp.Controls;
 using System.Linq;
+using System.Windows.Input;
 
 namespace TestGitClient
 {
@@ -139,40 +140,54 @@ namespace TestGitClient
                     lineNumberLabel.Text = lineNumber.ToString();
                     lineNumberLabel.Margin = new Thickness(5,0,5,0);                    
                     pane.Children.Add(lineNumberLabel);
-                    pane.Children.Add(lab);
-
-               
-
+                    pane.Children.Add(lab);                                
 
                     codeDisplay.Children.Add(pane);
+
+                    pane.MouseEnter += (s,e) => this.EnterCodeLine(s,e,aboveThisLine.Last(),true);
+                    pane.MouseLeave += (s, e) => this.EnterCodeLine(s, e, aboveThisLine.Last(), false);
+
                     lineNumber++;
                     lineOffset+=l.Length + 1; // + linebreak?
                 }
             }
         }
 
+        private void EnterCodeLine(object sender, MouseEventArgs e, Node node , bool setHighlight)
+        {
+            if (node == null) return;
+            var display = this.DisplayedNodes[node];
+            if (display == null) return;
+
+            display.Highlight = setHighlight;                      
+        }
+
+        Dictionary<Node, DisplayNode> DisplayedNodes = new Dictionary<Node, DisplayNode>();
+
+
         private BidirectionalGraph<object, IEdge<object>> AddNodeToDisplay(Node n)
         {          
             var g = new BidirectionalGraph<object, IEdge<object>>();
             var dn = new DisplayNode(n);
             g.AddVertex(dn);
-            var handledVertexes = new Dictionary<Node,DisplayNode>();
 
-            handledVertexes.Add(n ,dn);
+            DisplayedNodes.Clear();
+
+            DisplayedNodes.Add(n ,dn);
             var edges = currentGraph.GetEdgesFrom(n, Edge.EdgeType.HierarchialyAbove);
             while (edges.Count > 0)
             {
                 var nextNodes = new List<Node>();
                 foreach (var e in edges)
                 {
-                    if (!handledVertexes.ContainsKey(e.to))
+                    if (!DisplayedNodes.ContainsKey(e.to))
                     {
                         var de = new DisplayNode(e.to);
                         g.AddVertex(de);
-                        handledVertexes.Add(e.to, de);
+                        DisplayedNodes.Add(e.to, de);
                         nextNodes.Add(e.to);
                     }
-                    g.AddEdge(new Edge<object>(handledVertexes[e.from], handledVertexes[e.to]));
+                    g.AddEdge(new Edge<object>(DisplayedNodes[e.from], DisplayedNodes[e.to]));
                 }
 
                 edges.Clear();
@@ -204,7 +219,6 @@ namespace TestGitClient
             if (dn == null) { return; }
             var node = dn.Node ;
             if (node == null) { return; }
-
 
             if (this.nodeInEditor != node)
             {

@@ -4,7 +4,15 @@ namespace TestGitClient
 {
     internal class DisplayNode : DependencyObject
     {
+        public bool Highlight
+        {
+            get { return (bool)GetValue(HighlightProperty); }
+            set { SetValue(HighlightProperty, value); }
+        }
 
+        // Using a DependencyProperty as the backing store for Highlight.  This enables animation, styling, binding, etc...
+        public static readonly DependencyProperty HighlightProperty =
+            DependencyProperty.Register("Highlight", typeof(bool), typeof(DisplayNode), new PropertyMetadata(false));
 
         public Node Node
         {

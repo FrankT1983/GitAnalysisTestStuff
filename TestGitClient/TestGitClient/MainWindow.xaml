@@ -16,48 +16,61 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type graphsharp:VertexControl}">
                         <Border BorderThickness="1" BorderBrush="Black">
+                            <Border.Style>
+                                <Style TargetType="{x:Type Border}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Path=Highlight}" Value="true">
+                                            <Setter Property="Background" Value="LightGray"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
                             <Grid MouseLeftButtonDown="OnClickedNode">
-                                <Label Content="{Binding Path=Node.Content, FallbackValue=VertexId}" />
+                                <Grid.ColumnDefinitions>
+                                    <!--<ColumnDefinition Width="15"/>-->
+                                    <ColumnDefinition Width="*" />                                    
+                                </Grid.ColumnDefinitions>
+                                <!--<CheckBox IsChecked="{Binding Path=Highlight}" VerticalAlignment="Center" />-->
+                                <Label Grid.Column="1" Content="{Binding Path=Node.Content, FallbackValue=VertexId}" />
                             </Grid>
                         </Border>
-                        
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
     </Window.Resources>
-    
-    
+
+
     <Grid>
         <DockPanel>
             <DockPanel DockPanel.Dock="Top">
                 <Button DockPanel.Dock="Right" Click="OnTry"  HorizontalAlignment="Center">Try this</Button>
                 <StackPanel  DockPanel.Dock="Left" HorizontalAlignment="Stretch">
-                    <TextBox x:Name="UrlInput" HorizontalAlignment="Stretch">https://github.com/FrankT1983/HelloWorldParseTest.git</TextBox>               
+                    <TextBox x:Name="UrlInput" HorizontalAlignment="Stretch">https://github.com/FrankT1983/HelloWorldParseTest.git</TextBox>
                     <TextBox x:Name="LokalPath">C:/Tmp/GitTest2</TextBox>
                 </StackPanel>
             </DockPanel>
             <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Auto">
-            <StackPanel Orientation="Horizontal"  x:Name="CommitPane">                
-                <Button>Commits Go here</Button>
-            </StackPanel>
+                <StackPanel Orientation="Horizontal"  x:Name="CommitPane">
+                    <Button>Commits Go here</Button>
+                </StackPanel>
             </ScrollViewer>
-            <VirtualizingStackPanel DockPanel.Dock="Bottom" x:Name="OutputBox">                
+            <VirtualizingStackPanel DockPanel.Dock="Bottom" x:Name="OutputBox">
             </VirtualizingStackPanel>
 
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="15*"/>
-                    <ColumnDefinition Width="3" />                    
+                    <ColumnDefinition Width="3" />
                     <ColumnDefinition Width="30*"/>
                     <ColumnDefinition Width="3" />
                     <ColumnDefinition Width="100*" />
                 </Grid.ColumnDefinitions>
 
                 <TreeView x:Name="FileTree">
-                    
+
                 </TreeView>
-               
+
                 <GridSplitter Grid.Column="1"  HorizontalAlignment="Stretch"  />
 
                 <zoom:ZoomControl   Grid.Column="2" >
@@ -73,7 +86,7 @@
                 <GridSplitter Grid.Column="3"  HorizontalAlignment="Stretch"  />
                 <VirtualizingStackPanel Grid.Column="5" x:Name="CodeDisplay">
                 </VirtualizingStackPanel>
-            </Grid>                    
+            </Grid>
         </DockPanel>
     </Grid>
 </Window>
