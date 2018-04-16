@@ -26,8 +26,12 @@ namespace TestGitClient.Logic
                 var commits = new List<Commit>(repo.Commits);
                 commits.Sort((a, b) => a.Author.When.CompareTo(b.Author.When));
 
+                
                 foreach (Commit commit in commits)
-                {                 
+                {
+                    System.Console.WriteLine(i++);
+                    //if (i > 1000) break;
+                    
                     Node authorNode = null;
                     if (!authorNodes.ContainsKey(commit.Author.Email))
                     {
@@ -35,10 +39,8 @@ namespace TestGitClient.Logic
                         allNodes.Add(authorNode);
                         authorNodes.Add(commit.Author.Email, authorNode);
                     }
-                    authorNode = authorNodes[commit.Author.Email];
-
-                    i++;
-                    if (i > 10) break;
+                    
+                    authorNode = authorNodes[commit.Author.Email];                
 
                     var commitNode = new Node(commit.Id.Sha, Node.NodeType.Commit, commit.MessageShort.Trim(), commit.Message.Trim());
                     allNodes.Add(commitNode);
@@ -75,7 +77,17 @@ namespace TestGitClient.Logic
                             allEdges.AddRange(subEdges);
                             allNodes.AddRange(subNodes);
 
-                            previousTrees.Add(ContructCommitTreeIdentifyer(commit.Sha, change.Path), enrichedTree);
+                            if (previousTrees.ContainsKey(ContructCommitTreeIdentifyer(commit.Sha, change.Path)))
+                            {
+                                // this can happen with multiple Parents in case of a merge ... think about how to handle this
+
+                            }
+                            else
+                            {
+                                previousTrees.Add(ContructCommitTreeIdentifyer(commit.Sha, change.Path), enrichedTree);
+                            }
+                            
+                            
 
                             SyntakTreeDecorator prefTree;
                             if (previousTrees.TryGetValue(ContructCommitTreeIdentifyer(parent.Sha, change.Path), out prefTree))
@@ -123,6 +135,12 @@ namespace TestGitClient.Logic
 
         private static void CompareTressAndCreateEdges(SyntakTreeDecorator fromTree, SyntakTreeDecorator tooTree, List<Edge> transitionEdges)
         {
+            if (fromTree == null || fromTree.childs == null)
+            {
+                return;
+            }
+
+
             var thisLevelsEdges = new List<Edge>();
 
             var tooList = new List<SyntakTreeDecorator>();
@@ -130,6 +148,13 @@ namespace TestGitClient.Logic
 
             foreach (var from in fromTree.childs)
             {
+                if (tooTree == null || tooTree.childs == null)
+                {
+                    notFound.Add(from);
+                    continue;
+                    // probally deleted
+                }
+
                 var to = TreeComparison.FindBelongingThing(from, tooTree.childs);
                 if (to != null)
                 {

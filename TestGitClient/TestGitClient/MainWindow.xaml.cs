@@ -14,6 +14,7 @@ using System.Windows.Media;
 using GraphSharp.Controls;
 using System.Linq;
 using System.Windows.Input;
+using TestGitClient.View;
 
 namespace TestGitClient
 {
@@ -46,7 +47,6 @@ namespace TestGitClient
             catch (Exception ex)
             { Output(ex.ToString()); }
 
-
             if (g == null)
             {
                 // try opening
@@ -65,8 +65,8 @@ namespace TestGitClient
 
             if (g != null)
             {
+                Output("Generated graph with " + g.Nodes.Count + " Nodes and " + g.Edges.Count + " Edges");                     
                 g.Serialize("Test.GEXF");
-
                 currentGraph = g;
                 var commitNodes = g.GetNodesOfType(Node.NodeType.Commit);
                 this.CommitPane.Children.Clear();
@@ -109,17 +109,16 @@ namespace TestGitClient
 
                                 if (toNode.Any())
                                 {
-                                    CommitDescription.Text += " Changed " + node.Content + "\n";
+                                    CommitDescription.Text += " Changed " + NodeDescriber.Decribe(node)+ "\n";
                                 }
                                 else
                                 {
-                                    CommitDescription.Text += " Created " + node.Content + "\n";
+                                    CommitDescription.Text += " Created " + NodeDescriber.Decribe(node) + "\n";
                                 }
                             }
                             break;
                         default: break;
-                    }
-                    Output("blub");
+                    }                    
                 }
             }
         }
@@ -311,14 +310,31 @@ namespace TestGitClient
             // find all nodes where Node is Syntax  +  Edge is NoCodeChange
             var graph = this.currentGraph;
 
+            int origNodeCount = graph.Nodes.Count;
+            int origEdgeCount = graph.Edges.Count;
+
+
+            var syntaxNodes = graph.Nodes.Where(n => n.Type == Node.NodeType.Syntax).ToList();
+            var noChangeEdges = syntaxNodes.AsParallel().SelectMany(sn => graph.Edges.Where(e => e.from == sn && e.type == Edge.EdgeType.NoCodeChange)).ToList();
+
+            int i = 0;
             do
             {
                 Edge noChangeEdge;
-                {
-                    var syntaxNodes = graph.Nodes.Where(n => n.Type == Node.NodeType.Syntax);
-                    noChangeEdge = syntaxNodes.SelectMany(sn => graph.Edges.Where(e => e.from == sn && e.type == Edge.EdgeType.NoCodeChange)).FirstOrDefault();
+                {                    
+                    noChangeEdge = noChangeEdges.FirstOrDefault();
                     if (noChangeEdge == null)
                     { break; }
+                }
+
+                {
+                    System.Console.Write(".");
+                    i++;
+                    if (i>100)
+                    {
+                        i = 0;
+                        System.Console.Write("\n");
+                    }
                 }
 
                 var toRemove = noChangeEdge.to;
@@ -328,16 +344,24 @@ namespace TestGitClient
                 {
                     graph.Edges.Add(new Edge(noChangeEdge.from, e.to, e.type));
                     graph.Edges.Remove(e);
+
+                    if (e.type == Edge.EdgeType.NoCodeChange)
+                    {
+                        noChangeEdges.Add(new Edge(noChangeEdge.from, e.to, e.type));
+                    }
                 }
 
                 graph.Edges.RemoveAll(e => e.from == toRemove || e.to == toRemove);
+                noChangeEdges.RemoveAll(e => e.from == toRemove || e.to == toRemove);
+
                 graph.Nodes.Remove(toRemove);
+                syntaxNodes.Remove(toRemove);
 
 
             } while (true);
 
             graph.Serialize("TestTrimed.GEXF");
-            Output("Trimed");
+            Output("Trimed " + (origNodeCount - graph.Nodes.Count) + " Nodes and " + (origEdgeCount - graph.Edges.Count) + " Edges ");
         }
     }
 }

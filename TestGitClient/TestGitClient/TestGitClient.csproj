@@ -170,11 +170,13 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Logic\TreeHelper.cs" />
     <Compile Include="Tools\DebugHelper.cs" />
     <Compile Include="View\DisplayNode.cs" />
     <Compile Include="Logic\GraphFactory.cs" />
     <Compile Include="Logic\SyntakTreeDecorator.cs" />
     <Compile Include="Logic\TreeComparison.cs" />
+    <Compile Include="View\NodeDescriber.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
