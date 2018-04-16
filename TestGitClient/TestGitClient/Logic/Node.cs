@@ -1,8 +1,18 @@
 ﻿using System.Diagnostics;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace TestGitClient
 {
+    static class NodeTypeHelpers
+    {
+
+        public static bool IsMethodDeclartionNode(this Node et)
+        {
+            return et.Type == Node.NodeType.Syntax && et.SyntaxNode != null && et.SyntaxNode.Kind() == SyntaxKind.MethodDeclaration;
+        }
+    }
+
     [DebuggerDisplay("{Type} : {Content} ({Id})")]
     public class Node
     {

@@ -54,6 +54,7 @@
             </DockPanel>
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Top">
                 <Button Click="OnTrim">Trim</Button>
+                <Button Click="OnStats">Statistics</Button>
             </StackPanel>
             <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Auto">
                 <StackPanel Orientation="Horizontal"  x:Name="CommitPane">

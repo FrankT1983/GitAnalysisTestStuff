@@ -15,6 +15,7 @@ using GraphSharp.Controls;
 using System.Linq;
 using System.Windows.Input;
 using TestGitClient.View;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace TestGitClient
 {
@@ -67,6 +68,7 @@ namespace TestGitClient
             {
                 Output("Generated graph with " + g.Nodes.Count + " Nodes and " + g.Edges.Count + " Edges");                     
                 g.Serialize("Test.GEXF");
+                g.Serialize2("Test.txt");
                 currentGraph = g;
                 var commitNodes = g.GetNodesOfType(Node.NodeType.Commit);
                 this.CommitPane.Children.Clear();
@@ -307,61 +309,46 @@ namespace TestGitClient
 
         private void OnTrim(object sender, RoutedEventArgs ev)
         {
+
             // find all nodes where Node is Syntax  +  Edge is NoCodeChange
             var graph = this.currentGraph;
-
             int origNodeCount = graph.Nodes.Count;
-            int origEdgeCount = graph.Edges.Count;
-
-
-            var syntaxNodes = graph.Nodes.Where(n => n.Type == Node.NodeType.Syntax).ToList();
-            var noChangeEdges = syntaxNodes.AsParallel().SelectMany(sn => graph.Edges.Where(e => e.from == sn && e.type == Edge.EdgeType.NoCodeChange)).ToList();
-
-            int i = 0;
-            do
-            {
-                Edge noChangeEdge;
-                {                    
-                    noChangeEdge = noChangeEdges.FirstOrDefault();
-                    if (noChangeEdge == null)
-                    { break; }
-                }
-
-                {
-                    System.Console.Write(".");
-                    i++;
-                    if (i>100)
-                    {
-                        i = 0;
-                        System.Console.Write("\n");
-                    }
-                }
-
-                var toRemove = noChangeEdge.to;
-                var toRemoveOutGoing = graph.GetEdgesFrom(toRemove).Where(e => e.type == Edge.EdgeType.CodeChanged || e.type == Edge.EdgeType.NoCodeChange).ToList();
-
-                foreach (var e in toRemoveOutGoing)
-                {
-                    graph.Edges.Add(new Edge(noChangeEdge.from, e.to, e.type));
-                    graph.Edges.Remove(e);
-
-                    if (e.type == Edge.EdgeType.NoCodeChange)
-                    {
-                        noChangeEdges.Add(new Edge(noChangeEdge.from, e.to, e.type));
-                    }
-                }
-
-                graph.Edges.RemoveAll(e => e.from == toRemove || e.to == toRemove);
-                noChangeEdges.RemoveAll(e => e.from == toRemove || e.to == toRemove);
-
-                graph.Nodes.Remove(toRemove);
-                syntaxNodes.Remove(toRemove);
-
-
-            } while (true);
+            int origEdgeCount = graph.Edges.Count;            
+            graph.TrimNoCodeChange();
 
             graph.Serialize("TestTrimed.GEXF");
+            graph.Serialize2("TestTrimed.Txt");
             Output("Trimed " + (origNodeCount - graph.Nodes.Count) + " Nodes and " + (origEdgeCount - graph.Edges.Count) + " Edges ");
+        }
+
+        
+
+        private void OnStats(object sender, RoutedEventArgs ev)
+        {
+            // method change paths
+            CommitDescription.Text = "";
+            var graph = this.currentGraph;
+
+            var subGraph = new Graph();
+            subGraph.Nodes.AddRange(graph.Nodes.Where(n => n.IsMethodDeclartionNode()));
+            subGraph.Edges.AddRange(graph.Edges.Where(e => e.from.IsMethodDeclartionNode() && e.to.IsMethodDeclartionNode()));
+                    
+
+            var sinks = subGraph.SinkVertexs();
+            List<int> changes = new List<int>();
+            foreach(var s in sinks)
+            {
+                var methodHistory = subGraph.GetConnectedSubGraph(s, null, true);
+                methodHistory.TrimNoCodeChange();
+
+                if (methodHistory.Edges.Count == methodHistory.Nodes.Count - 1)
+                {
+                    CommitDescription.Text += NodeDescriber.Decribe(s) + " had " + methodHistory.Edges.Count + " changes \n " ;
+                    changes.Add(methodHistory.Edges.Count);
+                }                
+            }
+
+            CommitDescription.Text += "Overall " + changes.Count + " Methods changd " + changes.Min() + " - " + changes.Max() + " avrg. " + changes.Average() + "\n";
         }
     }
 }
