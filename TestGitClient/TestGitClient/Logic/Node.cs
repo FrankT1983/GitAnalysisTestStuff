@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis;
 
 namespace TestGitClient
 {
-    [DebuggerDisplay("{Type} : {Content}")]
+    [DebuggerDisplay("{Type} : {Content} ({Id})")]
     public class Node
     {
         public enum NodeType

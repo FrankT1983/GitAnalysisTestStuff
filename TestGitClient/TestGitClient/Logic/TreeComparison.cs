@@ -233,7 +233,15 @@ namespace TestGitClient
         {
             if (node is MethodDeclarationSyntax)
             {
-                return ((MethodDeclarationSyntax)node).Body.ToFullString();
+                var body = ((MethodDeclarationSyntax)node).Body;
+                if (body != null)
+                {
+                    return body.ToFullString();
+                }
+                else
+                {
+                    return "";
+                }
             }
 
             var b = new StringBuilder();            

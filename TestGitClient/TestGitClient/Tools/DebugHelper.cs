@@ -4,7 +4,6 @@
     {
         internal static void BreakIntoDebug()
         {
-            int i = 0;
         }
     }
 }

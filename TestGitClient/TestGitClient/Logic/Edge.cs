@@ -2,6 +2,15 @@
 
 namespace TestGitClient
 {
+    static class EdgeTypeHelpers
+    {
+
+        public static bool IsCodeModificationEdge(this Edge.EdgeType et)
+        {
+            return et == Edge.EdgeType.CodeChanged || et == Edge.EdgeType.CodeChangedRename || et == Edge.EdgeType.NoCodeChange;
+        }
+    }
+
     [DebuggerDisplay("{type} : {from} -> {to}")]
     public class Edge
     {
@@ -17,7 +26,10 @@ namespace TestGitClient
             CodeChangedRename,
             InFile,
             SyntaxHierarchialyAbove,
+
         }
+
+     
 
         public Edge(Node f, Node t, EdgeType edgeType)
         {

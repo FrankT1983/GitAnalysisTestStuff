@@ -8,19 +8,11 @@ using System.Linq;
 namespace TestGitClient
 {
     public class Graph
-    {
+    {    
+        public List<Node> Nodes { get; } = new List<Node>();
 
-        private List<Node> nodes = new List<Node>();
-        private List<Edge> edgedes = new List<Edge>();
-
-        public List<Node> Nodes
-        {
-            get
-            {
-                return this.nodes;
-            }
-        }
-
+        public List<Edge> Edges { get; } = new List<Edge>();
+            
         public void Serialize(string path)
         {
             var foo = new gexfcontent();
@@ -68,7 +60,7 @@ namespace TestGitClient
 
             {
                 List<nodecontent> convertedNodes = new List<nodecontent>();
-                foreach (var nc in this.nodes)
+                foreach (var nc in this.Nodes)
                 {
                     var node = new nodecontent();
                     node.id = nc.Id;
@@ -108,7 +100,7 @@ namespace TestGitClient
             var edgesToSTore = new edgescontent();
             {
                 List<edgecontent> convertedEdge = new List<edgecontent>();
-                foreach (var e in this.edgedes)
+                foreach (var e in this.Edges)
                 {
                     var blub = new edgecontent();
                     blub.id = i.ToString(); i++;
@@ -149,13 +141,14 @@ namespace TestGitClient
 
         internal Graph GetConnectedSubGraph(Node n, IEnumerable<Edge.EdgeType> allowedConnections, bool biDirectional)
         {
-            var nodesToCheck = new HashSet<Node>(this.nodes);
-            var edgesToCheck = new HashSet<Edge>(this.edgedes);
+            var nodesToCheck = new HashSet<Node>(this.Nodes);
+            var edgesToCheck = new HashSet<Edge>(this.Edges);
 
             var workingSetNodes = new HashSet<Node>();
             var workingSetEdges = new List<Edge>();
             workingSetNodes.Add(n);
             nodesToCheck.Remove(n);
+                        
 
             bool change = true;
             while(change)
@@ -197,32 +190,29 @@ namespace TestGitClient
             }
 
             var result  = new Graph();
-            result.edgedes = workingSetEdges;
-            result.nodes.AddRange(workingSetNodes);
+            result.Edges.AddRange(workingSetEdges);
+            result.Nodes.AddRange(workingSetNodes);
             return result;
         }
 
         internal IEnumerable<Node> GetNeighborsOf(Node n)
         {
-            var edges = GetEdgesFrom(n,this.edgedes);
+            var edges = GetEdgesFrom(n,this.Edges);
             return GetDestinationNodes(edges);
         }
 
         internal IEnumerable<Node> GetNeighborsOf(Node n, Node.NodeType type)
         {
-            var edges = GetEdgesFrom(n, this.edgedes);
+            var edges = GetEdgesFrom(n, this.Edges);
             return GetDestinationNodes(edges, type);
         }
 
-        private IEnumerable<Node> GetDestinationNodes(List<Edge> list)
+        private IEnumerable<Node> GetDestinationNodes(IEnumerable<Edge> list)
         {
-            foreach(var e in list)
-            {
-                yield return e.to;
-            }
+            return list.Select(e => e.to);
         }
 
-        private IEnumerable<Node> GetDestinationNodes(List<Edge> list, Node.NodeType type)
+        private IEnumerable<Node> GetDestinationNodes(IEnumerable<Edge> list, Node.NodeType type)
         {
             foreach (var e in list)
             {
@@ -234,14 +224,14 @@ namespace TestGitClient
         }
 
 
-        internal List<Edge> GetEdgesFrom(Node n)
+        internal IEnumerable<Edge> GetEdgesFrom(Node n)
         {
-            return GetEdgesFrom(n, this.edgedes);
+            return GetEdgesFrom(n, this.Edges);
         }
 
-        static internal List<Edge> GetEdgesFrom(Node n, List<Edge> edges)
+        static internal IEnumerable<Edge> GetEdgesFrom(Node n, List<Edge> edges)
         {
-            return edges.FindAll(e => e.from.Equals(n));
+            return edges.Where(e => e.from.Equals(n));
         }
 
         static internal List<Edge> GetEdgesTo(Node n, List<Edge> edges)
@@ -251,19 +241,19 @@ namespace TestGitClient
 
         internal List<Edge> GetEdgesFrom(Node n, Edge.EdgeType edgeType)
         {
-            return this.edgedes.FindAll(e => e.type.Equals(edgeType) && e.from.Equals(n));
+            return this.Edges.FindAll(e => e.type.Equals(edgeType) && e.from.Equals(n));
         }
 
         internal List<Node> GetNodesOfType(Node.NodeType searchtype)
         {                                 
-            return this.nodes.FindAll( n => n.Type == searchtype);
+            return this.Nodes.FindAll( n => n.Type == searchtype);
         }
 
         internal void Add(List<Node> toAdd)
         {
             foreach (var n in toAdd)
             {
-                this.nodes.Add(n);
+                this.Nodes.Add(n);
             }
         }
 
@@ -271,7 +261,7 @@ namespace TestGitClient
         {
             foreach (var n in allEdges)
             {
-                this.edgedes.Add(n);
+                this.Edges.Add(n);
             }
         }
     }

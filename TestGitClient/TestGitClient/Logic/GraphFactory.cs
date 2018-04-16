@@ -97,9 +97,7 @@ namespace TestGitClient.Logic
                 graph.Add(allEdges);               
 
                 return graph;
-            }
-
-            return null;
+            }            
         }
 
         private static Node GetOldVersionOfFile(Dictionary<string, Node> fileNodes, List<Edge> allEdges, string path, Node fileNode)

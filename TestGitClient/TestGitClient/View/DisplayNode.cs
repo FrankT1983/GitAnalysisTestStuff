@@ -1,9 +1,22 @@
 ﻿using System.Windows;
+using System.Windows.Media;
 
 namespace TestGitClient
 {
     internal class DisplayNode : DependencyObject
     {
+
+
+        public Brush Color
+        {
+            get { return (Brush)GetValue(ColorProperty); }
+            set { SetValue(ColorProperty, value); }
+        }
+
+        // Using a DependencyProperty as the backing store for Color.  This enables animation, styling, binding, etc...
+        public static readonly DependencyProperty ColorProperty =
+            DependencyProperty.Register("Color", typeof(Brush), typeof(DisplayNode), new PropertyMetadata(Brushes.White));
+        
         public bool Highlight
         {
             get { return (bool)GetValue(HighlightProperty); }
@@ -27,6 +40,19 @@ namespace TestGitClient
         public DisplayNode(Node n )
         {
             this.Node = n;
+
+            switch(n.Type)
+            {
+                case Node.NodeType.Commit:
+                    this.Color = (SolidColorBrush)(new BrushConverter().ConvertFrom("#f00000")); break;
+                case Node.NodeType.FileCS:
+                    this.Color = (SolidColorBrush)(new BrushConverter().ConvertFrom("#c6f1ff")); break;
+                case Node.NodeType.Syntax:
+                    this.Color = (SolidColorBrush)(new BrushConverter().ConvertFrom("#c6ffe3")); break;
+
+                default:
+                    this.Color = Brushes.White;break;
+            }
         }       
 
         public bool IsSelected
