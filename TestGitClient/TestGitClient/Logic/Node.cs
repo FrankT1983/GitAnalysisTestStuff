@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -49,7 +50,15 @@ namespace TestGitClient
             this.Type = NodeType.Syntax;
             this.Id = nodeId;
             this.Content = content;
-            this.SyntaxType = nodeType;
+            this.SyntaxType = nodeType;            
+        }
+
+        internal string getSyntaxFullContent()
+        {
+            if (this.SyntaxNode == null)
+            { return ""; }
+
+            return this.SyntaxNode.ToFullString();            
         }
     }
 }

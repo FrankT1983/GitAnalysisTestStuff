@@ -4,6 +4,7 @@ using System.Xml;
 using System.Xml.Serialization;
 using System;
 using System.Linq;
+using LibGit2Sharp;
 
 namespace TestGitClient
 {
@@ -162,7 +163,7 @@ namespace TestGitClient
                                                 new attvalue
                                                 {
                                                     @for = NodeTypeFullContent,
-                                                    value = (nc.FullContent != null) ? nc.FullContent : "",
+                                                    value =(nc.Type != Node.NodeType.Syntax ) ? nc.FullContent : nc.getSyntaxFullContent(),
                                                 },
                                             }
                                         }
@@ -340,6 +341,12 @@ namespace TestGitClient
             {
                 this.Edges.Add(n);
             }
+        }
+
+        private Repository repository;
+        internal void SetRepository(Repository repo)
+        {
+            this.repository = repo;
         }
     }
 }

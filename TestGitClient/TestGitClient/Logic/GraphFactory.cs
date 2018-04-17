@@ -9,107 +9,103 @@ namespace TestGitClient.Logic
 {
     public class GraphFactory
     {
-        static public  Graph GraphFromRepoFolder(string lokalPath)
-        {            
-            using (var repo = new Repository(lokalPath))
-            {                            
-                var graph = new Graph();
+        static public  Graph GraphFromRepoFolder(Repository repo)
+        {                       
+            var graph = new Graph();
+            graph.SetRepository(repo);
 
-                var authorNodes = new Dictionary<string, Node>();
-                var fileNodes = new Dictionary<string, Node>();
-                var previousTrees = new Dictionary<string, SyntakTreeDecorator>();  // todo: this is inefficent, could drop commits, that are note useded anymore
-                var allNodes = new List<Node>();
-                var allEdges = new List<Edge>();
-                int i = 0;
-                Node lastCommit = null;
+            var authorNodes = new Dictionary<string, Node>();
+            var fileNodes = new Dictionary<string, Node>();
+            var previousTrees = new Dictionary<string, SyntakTreeDecorator>();  // todo: this is inefficent, could drop commits, that are note useded anymore
+            var allNodes = new List<Node>();
+            var allEdges = new List<Edge>();
+            int i = 0;
+            Node lastCommit = null;
 
-                var commits = new List<Commit>(repo.Commits);
-                commits.Sort((a, b) => a.Author.When.CompareTo(b.Author.When));
+            var commits = new List<Commit>(repo.Commits);
+            commits.Sort((a, b) => a.Author.When.CompareTo(b.Author.When));
 
                 
-                foreach (Commit commit in commits)
+            foreach (Commit commit in commits)
+            {
+                System.Console.WriteLine(i++);
+                if (i > 100) break;
+                    
+                Node authorNode = null;
+                if (!authorNodes.ContainsKey(commit.Author.Email))
                 {
-                    System.Console.WriteLine(i++);
-                    //if (i > 1000) break;
+                    authorNode = new Node(commit.Author.Name, Node.NodeType.Person, commit.Author.Name);
+                    allNodes.Add(authorNode);
+                    authorNodes.Add(commit.Author.Email, authorNode);
+                }
                     
-                    Node authorNode = null;
-                    if (!authorNodes.ContainsKey(commit.Author.Email))
-                    {
-                        authorNode = new Node(commit.Author.Name, Node.NodeType.Person, commit.Author.Name);
-                        allNodes.Add(authorNode);
-                        authorNodes.Add(commit.Author.Email, authorNode);
-                    }
-                    
-                    authorNode = authorNodes[commit.Author.Email];                
+                authorNode = authorNodes[commit.Author.Email];                
 
-                    var commitNode = new Node(commit.Id.Sha, Node.NodeType.Commit, commit.MessageShort.Trim(), commit.Message.Trim());
-                    allNodes.Add(commitNode);
-                    allEdges.Add(new Edge(authorNode, commitNode, Edge.EdgeType.Author));
+                var commitNode = new Node(commit.Id.Sha, Node.NodeType.Commit, commit.MessageShort.Trim(), commit.Message.Trim());
+                allNodes.Add(commitNode);
+                allEdges.Add(new Edge(authorNode, commitNode, Edge.EdgeType.Author));
 
-                    if (lastCommit != null)
-                    {
-                        allEdges.Add(new Edge(lastCommit, commitNode, Edge.EdgeType.NextCommit));
-                    }
-                    lastCommit = commitNode;
+                if (lastCommit != null)
+                {
+                    allEdges.Add(new Edge(lastCommit, commitNode, Edge.EdgeType.NextCommit));
+                }
+                lastCommit = commitNode;
 
-                    bool hasParrents = false;
-                    foreach (var parent in commit.Parents)
+                bool hasParrents = false;
+                foreach (var parent in commit.Parents)
+                {
+                    hasParrents = true;
+                    var changes = repo.Diff.Compare<TreeChanges>(parent.Tree, commit.Tree);
+                    foreach (TreeEntryChanges change in changes)
                     {
-                        hasParrents = true;
-                        var changes = repo.Diff.Compare<TreeChanges>(parent.Tree, commit.Tree);
-                        foreach (TreeEntryChanges change in changes)
+                        //Output(String.Format("{0} : {1}", change.Status, change.Path));
+
+                        var fileNode = new Node(change.Path + commit.Id, Node.NodeType.File, change.Path);
+                        Node oldFileNode = GetOldVersionOfFile(fileNodes, allEdges, change.Path, fileNode);
+
+                        allNodes.Add(fileNode);
+                        allEdges.Add(new Edge(commitNode, fileNode, Edge.EdgeType.HierarchialyAbove));
+
+                        if (!change.Path.EndsWith(".cs")) { continue; }
+
+                        fileNode.Type = Node.NodeType.FileCS;
+
+                        var subEdges = new List<Edge>();
+                        var subNodes = new List<Node>();
+                        var enrichedTree = TreeHelper.ParseCsFileAndAddToGraph(subNodes, subEdges, commit, change.Path, fileNode);
+                        allEdges.AddRange(subEdges);
+                        allNodes.AddRange(subNodes);
+
+                        if (previousTrees.ContainsKey(ContructCommitTreeIdentifyer(commit.Sha, change.Path)))
                         {
-                            //Output(String.Format("{0} : {1}", change.Status, change.Path));
+                            // this can happen with multiple Parents in case of a merge ... think about how to handle this
 
-                            var fileNode = new Node(change.Path + commit.Id, Node.NodeType.File, change.Path);
-                            Node oldFileNode = GetOldVersionOfFile(fileNodes, allEdges, change.Path, fileNode);
-
-                            allNodes.Add(fileNode);
-                            allEdges.Add(new Edge(commitNode, fileNode, Edge.EdgeType.HierarchialyAbove));
-
-                            if (!change.Path.EndsWith(".cs")) { continue; }
-
-                            fileNode.Type = Node.NodeType.FileCS;
-
-                            var subEdges = new List<Edge>();
-                            var subNodes = new List<Node>();
-                            var enrichedTree = TreeHelper.ParseCsFileAndAddToGraph(subNodes, subEdges, commit, change.Path, fileNode);
-                            allEdges.AddRange(subEdges);
-                            allNodes.AddRange(subNodes);
-
-                            if (previousTrees.ContainsKey(ContructCommitTreeIdentifyer(commit.Sha, change.Path)))
-                            {
-                                // this can happen with multiple Parents in case of a merge ... think about how to handle this
-
-                            }
-                            else
-                            {
-                                previousTrees.Add(ContructCommitTreeIdentifyer(commit.Sha, change.Path), enrichedTree);
-                            }
-                            
-                            
-
-                            SyntakTreeDecorator prefTree;
-                            if (previousTrees.TryGetValue(ContructCommitTreeIdentifyer(parent.Sha, change.Path), out prefTree))
-                            {
-                                var transitionEdges = new List<Edge>();
-                                CompareTressAndCreateEdges(prefTree, enrichedTree, transitionEdges);
-                                allEdges.AddRange(transitionEdges);
-                            }
                         }
-                    }
-
-                    if (!hasParrents)
-                    {
-                        AddInitialCommitToGraph(fileNodes, allNodes, allEdges, commit, commitNode, previousTrees);
+                        else
+                        {
+                            previousTrees.Add(ContructCommitTreeIdentifyer(commit.Sha, change.Path), enrichedTree);
+                        }                           
+                            
+                        SyntakTreeDecorator prefTree;
+                        if (previousTrees.TryGetValue(ContructCommitTreeIdentifyer(parent.Sha, change.Path), out prefTree))
+                        {
+                            var transitionEdges = new List<Edge>();
+                            CompareTressAndCreateEdges(prefTree, enrichedTree, transitionEdges);
+                            allEdges.AddRange(transitionEdges);
+                        }
                     }
                 }
 
-                graph.Add(allNodes);
-                graph.Add(allEdges);               
+                if (!hasParrents)
+                {
+                    AddInitialCommitToGraph(fileNodes, allNodes, allEdges, commit, commitNode, previousTrees);
+                }
+            }
 
-                return graph;
-            }            
+            graph.Add(allNodes);
+            graph.Add(allEdges);               
+
+            return graph;            
         }
 
         private static Node GetOldVersionOfFile(Dictionary<string, Node> fileNodes, List<Edge> allEdges, string path, Node fileNode)

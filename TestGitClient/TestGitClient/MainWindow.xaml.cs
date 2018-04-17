@@ -28,6 +28,7 @@ namespace TestGitClient
         private Graph currentGraph;
         Dictionary<Node, DisplayNode> DisplayedNodes = new Dictionary<Node, DisplayNode>();
         private Node nodeInEditor = null;
+        private Repository repo = null;
 
         public MainWindow()
         {
@@ -42,11 +43,16 @@ namespace TestGitClient
             var lokalPath = this.LokalPath.Text;
             this.OutputBox.Children.Clear();
 
+            CleanupRepo();
+
             Graph g = null;
             try
-            { g = GraphFactory.GraphFromRepoFolder(lokalPath); }
+            {
+                repo = new Repository(lokalPath);
+                g = GraphFactory.GraphFromRepoFolder(repo);
+            }
             catch (Exception ex)
-            { Output(ex.ToString()); }
+            { Output(ex.ToString()); CleanupRepo(); }
 
             if (g == null)
             {
@@ -56,7 +62,8 @@ namespace TestGitClient
                     Output("Starting clone");
                     Repository.Clone(url, lokalPath);
                     Output("Clone finished");
-                    g = GraphFactory.GraphFromRepoFolder(lokalPath);
+                    repo = new Repository(lokalPath);
+                    g = GraphFactory.GraphFromRepoFolder(repo);
                 }
                 catch (Exception ex)
                 {
@@ -66,9 +73,7 @@ namespace TestGitClient
 
             if (g != null)
             {
-                Output("Generated graph with " + g.Nodes.Count + " Nodes and " + g.Edges.Count + " Edges");                     
-                g.Serialize("Test.GEXF");
-                g.Serialize2("Test.txt");
+                Output("Generated graph with " + g.Nodes.Count + " Nodes and " + g.Edges.Count + " Edges");                                     
                 currentGraph = g;
                 var commitNodes = g.GetNodesOfType(Node.NodeType.Commit);
                 this.CommitPane.Children.Clear();
@@ -80,6 +85,15 @@ namespace TestGitClient
                     this.CommitPane.Children.Add(button);
                 }
             }
+        }
+
+        private void CleanupRepo()
+        {
+            var r = this.repo;
+            if (r == null) return;
+
+            this.repo = null;
+            r.Dispose();            
         }
 
         private void CommitButtonPressed(object o, Node n)
@@ -168,13 +182,11 @@ namespace TestGitClient
 
                 int lineOffset = node.SyntaxNode.SpanStart;
 
-                var lines = node.FullContent.Split('\n');
+                var lines = node.getSyntaxFullContent().Split('\n');
                 int lineNumber = 0;
                 foreach (var l in lines)
                 {
                     var aboveThisLine = parents.Where(n => lineOffset >= n.SyntaxNode.SpanStart && lineOffset < n.SyntaxNode.Span.End).ToList();
-
-
 
                     var pane = new StackPanel() { Orientation = Orientation.Horizontal };
                     var lab = new TextBlock();
@@ -315,9 +327,7 @@ namespace TestGitClient
             int origNodeCount = graph.Nodes.Count;
             int origEdgeCount = graph.Edges.Count;            
             graph.TrimNoCodeChange();
-
-            graph.Serialize("TestTrimed.GEXF");
-            graph.Serialize2("TestTrimed.Txt");
+            
             Output("Trimed " + (origNodeCount - graph.Nodes.Count) + " Nodes and " + (origEdgeCount - graph.Edges.Count) + " Edges ");
         }
 
@@ -348,7 +358,17 @@ namespace TestGitClient
                 }                
             }
 
-            CommitDescription.Text += "Overall " + changes.Count + " Methods changd " + changes.Min() + " - " + changes.Max() + " avrg. " + changes.Average() + "\n";
+            CommitDescription.Text += "Overall " + changes.Count + " Methods changed " + changes.Min() + " - " + changes.Max() + " avrg. " + changes.Average() + "\n";
+        }
+
+        private void OnSave(object sender, RoutedEventArgs e)
+        {
+            var g = this.currentGraph;
+            if (g == null) { return; }
+
+            g.Serialize("Test.GEXF");
+            g.Serialize2("Test.txt");
+            Output("Finished Serializing");
         }
     }
 }

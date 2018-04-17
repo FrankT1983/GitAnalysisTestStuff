@@ -57,9 +57,7 @@ namespace TestGitClient
                 var n = new Node(nodeId.ToString(), c.Kind().ToString(), c.Kind().ToString() + (nodeName!=null?" "+nodeName:""));
                 var n2 = new SyntakTreeDecorator();
                 n2.equivilantGraphNode = n;
-                n2.node = c;
-
-                n.FullContent = c.ToFullString().Trim();
+                n2.node = c;                
                 n.SyntaxNode = c;
                 nodeId++;
 

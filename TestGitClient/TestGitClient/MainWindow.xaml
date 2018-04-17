@@ -53,6 +53,7 @@
                 </StackPanel>
             </DockPanel>
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Top">
+                <Button Click="OnSave">Save</Button>
                 <Button Click="OnTrim">Trim</Button>
                 <Button Click="OnStats">Statistics</Button>
             </StackPanel>
