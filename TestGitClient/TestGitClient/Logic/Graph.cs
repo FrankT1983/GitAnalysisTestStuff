@@ -218,10 +218,33 @@ namespace TestGitClient
             }
         }
 
+        internal IEnumerable<Graph> GetConnectedSubGraphs( bool biDirectional)
+        {
+            var remainingNodes = new HashSet<Node>(this.Nodes);
+            var remainingEdges = new HashSet<Edge>(this.Edges);
+
+            while(remainingNodes.Any())
+            {
+                var n = remainingNodes.FirstOrDefault();
+
+                var ng = GetConnectedSubGraph(remainingNodes, remainingEdges, n, null, biDirectional);
+                yield return ng;           
+            }
+        }
+
         internal Graph GetConnectedSubGraph(Node n, IEnumerable<Edge.EdgeType> allowedConnections, bool biDirectional)
         {
             var nodesToCheck = new HashSet<Node>(this.Nodes);
             var edgesToCheck = new HashSet<Edge>(this.Edges);
+
+            return GetConnectedSubGraph(nodesToCheck, edgesToCheck, n, allowedConnections, biDirectional);
+
+        }
+
+        internal Graph GetConnectedSubGraph(HashSet<Node>  nodes, HashSet<Edge> edges, Node n, IEnumerable<Edge.EdgeType> allowedConnections, bool biDirectional)
+        {
+            var nodesToCheck = nodes;
+            var edgesToCheck = edges;
 
             var workingSetNodes = new HashSet<Node>();
             var workingSetEdges = new List<Edge>();
