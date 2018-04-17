@@ -45,8 +45,9 @@
 
     <Grid>
         <DockPanel>
-            <DockPanel DockPanel.Dock="Top">
+            <DockPanel DockPanel.Dock="Top">                
                 <Button DockPanel.Dock="Right" Click="OnTry"  HorizontalAlignment="Center">Try this</Button>
+                <TextBox DockPanel.Dock="Right" HorizontalAlignment="Center" VerticalAlignment="Center" Width="75" x:Name="MaxCommitsInput">maxCommits</TextBox>
                 <StackPanel  DockPanel.Dock="Left" HorizontalAlignment="Stretch">
                     <TextBox x:Name="UrlInput" HorizontalAlignment="Stretch">https://github.com/FrankT1983/HelloWorldParseTest.git</TextBox>
                     <TextBox x:Name="LokalPath">C:/Tmp/GitTest2</TextBox>
@@ -85,7 +86,9 @@
                     </Grid.RowDefinitions>
                     <TreeView x:Name="FileTree"/>
                     <GridSplitter Grid.Row="1"  HorizontalAlignment="Stretch"  />
-                    <TextBlock  Grid.Row="2" x:Name="CommitDescription"></TextBlock>
+                    <ScrollViewer Grid.Row="2">
+                        <TextBlock   x:Name="CommitDescription"></TextBlock>
+                    </ScrollViewer>
 
                 </Grid>
 

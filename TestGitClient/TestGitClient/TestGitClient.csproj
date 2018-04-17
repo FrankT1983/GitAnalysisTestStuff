@@ -170,7 +170,6 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="Logic\Class1.cs" />
     <Compile Include="Logic\TreeHelper.cs" />
     <Compile Include="Tools\DebugHelper.cs" />
     <Compile Include="View\DisplayNode.cs" />

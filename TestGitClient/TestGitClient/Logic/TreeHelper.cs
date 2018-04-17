@@ -119,12 +119,50 @@ namespace TestGitClient
                 }
             }
 
-
             {
                 var typed = node as Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax;
                 if (typed != null)
                 {
                     return typed.Identifier.Value.ToString();
+                }
+            }
+
+            {
+                var typed = node as Microsoft.CodeAnalysis.CSharp.Syntax.NamespaceDeclarationSyntax;
+                if (typed != null)
+                {
+                    return typed.Name.ToString();
+                }
+            }
+
+            {
+                var typed = node as Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax;
+                if (typed != null)
+                {
+                    return typed.ToFullString().Trim();
+                }
+            }
+
+            return null;
+        }
+
+        public static string GetFullName(SyntaxNode node)
+        {
+            {
+                var typed = node as Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax;
+                if (typed != null)
+                {
+                    return typed.Identifier.Value.ToString();
+                }
+            }
+
+            {
+                var typed = node as Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax;
+                if (typed != null)
+                {
+                    var methodName = GetName(node);
+                    var classname = GetName(node.Parent);
+                    return classname + "::" + methodName;
                 }
             }
 

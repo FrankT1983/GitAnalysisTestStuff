@@ -16,6 +16,8 @@ using System.Linq;
 using System.Windows.Input;
 using TestGitClient.View;
 using Microsoft.CodeAnalysis.CSharp;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace TestGitClient
 {
@@ -45,11 +47,17 @@ namespace TestGitClient
 
             CleanupRepo();
 
+            int max = -1;
+            if(!int.TryParse(MaxCommitsInput.Text,out max))
+            {
+                max = -1;
+            }
+
             Graph g = null;
             try
             {
                 repo = new Repository(lokalPath);
-                g = GraphFactory.GraphFromRepoFolder(repo);
+                g = GraphFactory.GraphFromRepoFolder(repo, max);
             }
             catch (Exception ex)
             { Output(ex.ToString()); CleanupRepo(); }
@@ -63,7 +71,7 @@ namespace TestGitClient
                     Repository.Clone(url, lokalPath);
                     Output("Clone finished");
                     repo = new Repository(lokalPath);
-                    g = GraphFactory.GraphFromRepoFolder(repo);
+                    g = GraphFactory.GraphFromRepoFolder(repo, max);
                 }
                 catch (Exception ex)
                 {
@@ -343,22 +351,35 @@ namespace TestGitClient
             subGraph.Nodes.AddRange(graph.Nodes.Where(n => n.IsMethodDeclartionNode()));
             subGraph.Edges.AddRange(graph.Edges.Where(e => e.from.IsMethodDeclartionNode() && e.to.IsMethodDeclartionNode()));
                     
-
             var sinks = subGraph.SinkVertexs();
-            List<int> changes = new List<int>();
-            foreach(var s in sinks)
-            {
+            ConcurrentBag<int> changes = new ConcurrentBag<int>();
+            ConcurrentBag<Tuple<int,string>> allChanges = new ConcurrentBag<Tuple<int, string>>();
+
+            Parallel.ForEach<Node>(sinks, (s) =>            {
+                //foreach (var s in sinks){
                 var methodHistory = subGraph.GetConnectedSubGraph(s, null, true);
-                methodHistory.TrimNoCodeChange();
+                //methodHistory.TrimNoCodeChange();
 
                 if (methodHistory.Edges.Count == methodHistory.Nodes.Count - 1)
                 {
-                    CommitDescription.Text += NodeDescriber.Decribe(s) + " had " + methodHistory.Edges.Count + " changes \n " ;
-                    changes.Add(methodHistory.Edges.Count);
-                }                
-            }
+                    var changeEdges = methodHistory.Edges.Where(e => e.type != Edge.EdgeType.NoCodeChange).Count();
+                    allChanges.Add(new Tuple<int, string>(changeEdges, NodeDescriber.Decribe(s) + " had " + changeEdges + " changes \n"));
+                    changes.Add(changeEdges);
+                }
+                else
+                {
+                    var foo = graph.Edges.Where(e => e.to == s).ToList();
+                    allChanges.Add(new Tuple<int, string>(methodHistory.Edges.Count, NodeDescriber.Decribe(s) + " had " + methodHistory.Edges.Count + " changes \n"));
+                }
+            });
 
             CommitDescription.Text += "Overall " + changes.Count + " Methods changed " + changes.Min() + " - " + changes.Max() + " avrg. " + changes.Average() + "\n";
+            var tmp = allChanges.ToList();                
+            tmp.Sort((s1, s2) => s2.Item1.CompareTo(s1.Item1)); // desending
+            foreach(var t in tmp)
+            {
+                CommitDescription.Text += t.Item2;
+            }
         }
 
         private void OnSave(object sender, RoutedEventArgs e)

@@ -9,7 +9,7 @@ namespace TestGitClient.Logic
 {
     public class GraphFactory
     {
-        static public  Graph GraphFromRepoFolder(Repository repo)
+        static public  Graph GraphFromRepoFolder(Repository repo, int max = -1)
         {                       
             var graph = new Graph();
             graph.SetRepository(repo);
@@ -29,7 +29,10 @@ namespace TestGitClient.Logic
             foreach (Commit commit in commits)
             {
                 System.Console.WriteLine(i++);
-                if (i > 100) break;
+                if (max > 0)
+                {
+                    if (i > max) break;
+                }
                     
                 Node authorNode = null;
                 if (!authorNodes.ContainsKey(commit.Author.Email))

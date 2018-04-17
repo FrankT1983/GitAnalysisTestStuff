@@ -17,7 +17,8 @@ namespace TestGitClient.View
                     switch (n.SyntaxNode.Kind())
                     {
                         case SyntaxKind.MethodDeclaration:
-                            var name = TreeHelper.GetName(n.SyntaxNode);
+                            var name = TreeHelper.GetFullName(n.SyntaxNode);
+                            
                             if (name != null)
                             {
                                 return "Methode " + name;
