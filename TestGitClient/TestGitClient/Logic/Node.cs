@@ -17,6 +17,8 @@ namespace TestGitClient
     [DebuggerDisplay("{Type} : {Content} ({Id})")]
     public class Node
     {
+        static int longId = 0;
+
         public enum NodeType
         {
             Commit,
@@ -28,10 +30,12 @@ namespace TestGitClient
 
         public NodeType Type { get; set; }
         public string Id { get; set; }
+        public long LongId { get; set; }
         public string SyntaxType { get; set; }
         public string Content { get; set; }
         public string FullContent { get; set; }
         public SyntaxNode SyntaxNode { get; internal set; }
+        public int DistanceFromSyntaxRoot { get; internal set; }
 
         public Node(string nodeId, NodeType nodeType, string content) : this(nodeId, nodeType, content, "")
         {          
@@ -43,6 +47,7 @@ namespace TestGitClient
             this.Id = nodeId;
             this.Content = content;
             this.FullContent = fullContent;
+            this.LongId = Node.longId++;
         }
 
         public Node(string nodeId, string nodeType, string content)
@@ -50,7 +55,8 @@ namespace TestGitClient
             this.Type = NodeType.Syntax;
             this.Id = nodeId;
             this.Content = content;
-            this.SyntaxType = nodeType;            
+            this.SyntaxType = nodeType;
+            this.LongId = Node.longId++;
         }
 
         internal string getSyntaxFullContent()

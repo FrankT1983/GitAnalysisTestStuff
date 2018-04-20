@@ -16,25 +16,48 @@ namespace TestGitClient
         }
 
         private static int nodeId = 0;
+        static private string NextGenericId()
+        {
+            var tmp = nodeId;
+            nodeId++;
+            return tmp.ToString();
+        }
+
+     
         static public SyntakTreeDecorator SyntaxTreeFromString(string content, Node fileNode, List<Node> allNodes, List<Edge> allEdges)
         {
             var foo = CSharpSyntaxTree.ParseText(content);
 
-            var subEdges = new List<Edge>();
-            var subNodes = new List<Node>();
-            var childTrees = AddChildsToNodes(foo.GetRoot(), fileNode, subNodes, subEdges);
-
-            if (allNodes != null) { allNodes.AddRange(subNodes); }
-            if (allEdges != null) { allEdges.AddRange(subEdges); }
 
             var enrichedTree = new SyntakTreeDecorator();
             enrichedTree.node = foo.GetRoot();
-            enrichedTree.equivilantGraphNode = fileNode;
+            enrichedTree.equivilantGraphNode = new Node(NextGenericId(), Node.NodeType.Syntax, fileNode.Id) {SyntaxNode = foo.GetRoot() };
+            nodeId++;
+          
+
+            var subEdges = new List<Edge>();
+            var subNodes = new List<Node>();
+            var childTrees = AddChildsToNodes(foo.GetRoot(), enrichedTree.equivilantGraphNode, subNodes, subEdges, 1);
+
+            if (allNodes != null)
+            {
+                allNodes.Add(enrichedTree.equivilantGraphNode);
+                allNodes.AddRange(subNodes);
+            }
+            if (allEdges != null)
+            {
+                allEdges.Add(new Edge(fileNode, enrichedTree.equivilantGraphNode, Edge.EdgeType.InFile));
+                allEdges.AddRange(subEdges);
+            }
+
+
             enrichedTree.childs.AddRange(childTrees);
+
+
             return enrichedTree;
         }
 
-        static public List<SyntakTreeDecorator> AddChildsToNodes(SyntaxNode rootNode, Node parentGraphNode, List<Node> allNodes, List<Edge> allEdges)
+        static public List<SyntakTreeDecorator> AddChildsToNodes(SyntaxNode rootNode, Node parentGraphNode, List<Node> allNodes, List<Edge> allEdges, int currentLevel)
         {
             var kind = rootNode.Kind();
             // break early for stuff
@@ -54,12 +77,12 @@ namespace TestGitClient
             {
 
                 var nodeName = GetName(c);
-                var n = new Node(nodeId.ToString(), c.Kind().ToString(), c.Kind().ToString() + (nodeName!=null?" "+nodeName:""));
+                var n = new Node(NextGenericId(), c.Kind().ToString(), c.Kind().ToString() + (nodeName!=null?" "+nodeName:""));
                 var n2 = new SyntakTreeDecorator();
                 n2.equivilantGraphNode = n;
                 n2.node = c;                
                 n.SyntaxNode = c;
-                nodeId++;
+                n.DistanceFromSyntaxRoot = currentLevel;             
 
                 if (allNodes != null) { allNodes.Add(n); }
                 if (parentGraphNode != null)
@@ -75,7 +98,7 @@ namespace TestGitClient
                     }
                 }
 
-                var childtrees = AddChildsToNodes(c, n, allNodes, allEdges);
+                var childtrees = AddChildsToNodes(c, n, allNodes, allEdges, currentLevel +1);
                 if (childtrees != null) { n2.childs.AddRange(childtrees); }
 
                 results.Add(n2);

@@ -20,36 +20,76 @@ namespace TestGitClient
             return result.ToList();
         }
 
+        private static void RemoveRange<T>(this List<T> removeFrom, List<T> toRemove)
+        {
+            foreach(T r in toRemove)
+            {
+                removeFrom.Remove(r);
+            }
+        }
+
         public static void TrimNoCodeChange(this Graph graph)
         {
             var syntaxNodes = graph.Nodes.Where(n => n.Type == Node.NodeType.Syntax).ToList();
             var noChangeEdges = syntaxNodes.AsParallel().SelectMany(sn => graph.Edges.Where(e => e.from == sn && e.type == Edge.EdgeType.NoCodeChange)).ToList();
 
-            int i = 0;
+            var maxLevel = syntaxNodes.Max(n => n.DistanceFromSyntaxRoot);
+
+            int currentLevel = 0;
             do
             {
                 Edge noChangeEdge;
                 {
-                    noChangeEdge = noChangeEdges.FirstOrDefault();
+                    noChangeEdge = noChangeEdges.FirstOrDefault(e => e.from.DistanceFromSyntaxRoot == currentLevel);
                     if (noChangeEdge == null)
-                    { break; }
-                }
+                    {
+                        if ( !noChangeEdges.Any())
+                        {   break;  }
 
-                //{
-                //    System.Console.Write(".");
-                //    i++;
-                //    if (i > 100)
-                //    {
-                //        i = 0;
-                //        System.Console.Write("\n");
-                //    }
-                //}
+                        if (currentLevel < maxLevel)
+                        {
+                            currentLevel++;
+                            continue;
+                        }
+                        else
+                        {
+                            noChangeEdge = noChangeEdges.FirstOrDefault();
+                            if (noChangeEdge == null)
+                            { break; }
+                        }
+                    }
+                }              
 
                 var toRemove = noChangeEdge.to;
                 var toRemoveOutGoing = graph.GetEdgesFrom(toRemove).Where(e => e.type == Edge.EdgeType.CodeChanged || e.type == Edge.EdgeType.NoCodeChange).ToList();
 
-                foreach (var e in toRemoveOutGoing)
+                var toRemoveIngoing = graph.Edges.Where(e => e.to == toRemove).ToList();
+
+                // add a OriginalSub
+                // SyntaxHierarchialAboveOrig
+
+                // simply drop subtree ?  --> kind of want to 
+                var subTree = graph.GetConnectedSubGraph(toRemove, new Edge.EdgeType[] { Edge.EdgeType.SyntaxHierarchialyAbove } , false, false);
+
+                foreach (var ingoing in toRemoveIngoing)
                 {
+                    switch (ingoing.type)
+                    {
+                        case Edge.EdgeType.SyntaxHierarchialyAbove:
+                            graph.Edges.Add(new Edge(ingoing.from ,noChangeEdge.from, Edge.EdgeType.SyntaxHierarchialyAboveOriginal));
+                            break;
+                        case Edge.EdgeType.InFile:
+                        case Edge.EdgeType.NoCodeChange:
+                            // do nothing
+                            break;
+                        default:
+                            DebugHelper.BreakIntoDebug();
+                            break;
+                    }
+                }
+
+                foreach (var e in toRemoveOutGoing)
+                {                  
                     graph.Edges.Add(new Edge(noChangeEdge.from, e.to, e.type));
                     graph.Edges.Remove(e);
 
@@ -57,11 +97,13 @@ namespace TestGitClient
                     {
                         noChangeEdges.Add(new Edge(noChangeEdge.from, e.to, e.type));
                     }
-                }
+                }                                              
 
                 graph.Edges.RemoveAll(e => e.from == toRemove || e.to == toRemove);
                 noChangeEdges.RemoveAll(e => e.from == toRemove || e.to == toRemove);
 
+                graph.Nodes.RemoveRange(subTree.Nodes);
+                syntaxNodes.RemoveRange(subTree.Nodes);
                 graph.Nodes.Remove(toRemove);
                 syntaxNodes.Remove(toRemove);
             } while (true);
@@ -82,12 +124,12 @@ namespace TestGitClient
             {
                 foreach(var n in this.Nodes)
                 {
-                    file.WriteLine("n"+sep + n.Id + sep + n.Type + sep);
+                    file.WriteLine("n"+sep + n.Id + sep + n.LongId + sep + n.Type + sep);
                 }
 
                 foreach (var e in this.Edges)
                 {
-                    file.WriteLine("e" +sep + e.from.Id + sep + e.to.Id + sep + e.type );
+                    file.WriteLine("e" +sep + e.from.Id + sep + e.from.LongId + sep + e.to.Id + sep + e.to.LongId + sep + e.type );
                 }
             }
         }
@@ -218,7 +260,7 @@ namespace TestGitClient
             }
         }
 
-        internal IEnumerable<Graph> GetConnectedSubGraphs( bool biDirectional)
+        internal IEnumerable<Graph> GetConnectedSubGraphs( bool biDirectional, bool inverseOder)
         {
             var remainingNodes = new HashSet<Node>(this.Nodes);
             var remainingEdges = new HashSet<Edge>(this.Edges);
@@ -227,21 +269,21 @@ namespace TestGitClient
             {
                 var n = remainingNodes.FirstOrDefault();
 
-                var ng = GetConnectedSubGraph(remainingNodes, remainingEdges, n, null, biDirectional);
+                var ng = GetConnectedSubGraph(remainingNodes, remainingEdges, n, null, biDirectional, inverseOder);
                 yield return ng;           
             }
         }
 
-        internal Graph GetConnectedSubGraph(Node n, IEnumerable<Edge.EdgeType> allowedConnections, bool biDirectional)
+        internal Graph GetConnectedSubGraph(Node n, IEnumerable<Edge.EdgeType> allowedConnections, bool biDirectional, bool inverseOder)
         {
             var nodesToCheck = new HashSet<Node>(this.Nodes);
             var edgesToCheck = new HashSet<Edge>(this.Edges);
 
-            return GetConnectedSubGraph(nodesToCheck, edgesToCheck, n, allowedConnections, biDirectional);
+            return GetConnectedSubGraph(nodesToCheck, edgesToCheck, n, allowedConnections, biDirectional, inverseOder);
 
         }
 
-        internal Graph GetConnectedSubGraph(HashSet<Node>  nodes, HashSet<Edge> edges, Node n, IEnumerable<Edge.EdgeType> allowedConnections, bool biDirectional)
+        internal Graph GetConnectedSubGraph(HashSet<Node>  nodes, HashSet<Edge> edges, Node n, IEnumerable<Edge.EdgeType> allowedConnections, bool biDirectional, bool inverseOder)
         {
             var nodesToCheck = nodes;
             var edgesToCheck = edges;
@@ -260,7 +302,16 @@ namespace TestGitClient
                 if (biDirectional)
                 { nextEdges = edgesToCheck.Where(e => workingSetNodes.Contains(e.from) || workingSetNodes.Contains(e.to)); }
                 else
-                { nextEdges = edgesToCheck.Where(e => workingSetNodes.Contains(e.from)); }
+                {
+                    if (!inverseOder)
+                    {
+                        nextEdges = edgesToCheck.Where(e => workingSetNodes.Contains(e.from));
+                    }
+                    else
+                    {
+                        nextEdges = edgesToCheck.Where(e => workingSetNodes.Contains(e.to));
+                    }
+                }
 
                 if (allowedConnections != null)
                 {

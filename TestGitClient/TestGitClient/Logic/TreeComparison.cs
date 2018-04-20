@@ -149,8 +149,6 @@ namespace TestGitClient
                 if (c.IsKind(SyntaxKind.IdentifierName))
                 {
                     return c.ToFullString().Trim();
-
-
                 }
             }
 

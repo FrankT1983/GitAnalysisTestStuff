@@ -18,6 +18,7 @@ using TestGitClient.View;
 using Microsoft.CodeAnalysis.CSharp;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using TestGitClient.Tools;
 
 namespace TestGitClient
 {
@@ -116,7 +117,7 @@ namespace TestGitClient
             {
                 BuildFileTreeForNode(n);
 
-                var changesInThisCommit = currentGraph.GetConnectedSubGraph(n, new Edge.EdgeType[] { Edge.EdgeType.SyntaxHierarchialyAbove, Edge.EdgeType.HierarchialyAbove, Edge.EdgeType.InFile }, false);
+                var changesInThisCommit = currentGraph.GetConnectedSubGraph(n, new Edge.EdgeType[] { Edge.EdgeType.SyntaxHierarchialyAbove, Edge.EdgeType.HierarchialyAbove, Edge.EdgeType.InFile }, false, false);
 
                 foreach (var node in changesInThisCommit.Nodes)
                 {
@@ -127,10 +128,8 @@ namespace TestGitClient
                             break;
 
                         case Node.NodeType.Syntax:
-
                             {
                                 var toNode = currentGraph.Edges.Where(e => e.to == node && e.type.IsCodeModificationEdge());
-
                                 if (toNode.Any())
                                 {
                                     CommitDescription.Text += " Changed " + NodeDescriber.Decribe(node)+ "\n";
@@ -184,8 +183,11 @@ namespace TestGitClient
             codeDisplay.Children.Clear();
             if (node.Type == Node.NodeType.Syntax)
             {
-
-                var parents = this.currentGraph.GetConnectedSubGraph(node, new Edge.EdgeType[] { Edge.EdgeType.SyntaxHierarchialyAbove }, true).Nodes;
+                var parentsBelow = this.currentGraph.GetConnectedSubGraph(node, new Edge.EdgeType[] { Edge.EdgeType.SyntaxHierarchialyAbove, Edge.EdgeType.SyntaxHierarchialyAboveOriginal }, false, false).Nodes;
+                var parentsAbove = this.currentGraph.GetConnectedSubGraph(node, new Edge.EdgeType[] { Edge.EdgeType.SyntaxHierarchialyAbove, Edge.EdgeType.SyntaxHierarchialyAboveOriginal }, false, true).Nodes;
+                var parents = new List<Node>();
+                parents.AddRange(parentsAbove);
+                parents.AddRange(parentsBelow);
                 parents.Sort((a, b) => a.SyntaxNode.SpanStart.CompareTo(b.SyntaxNode.SpanStart));
 
                 int lineOffset = node.SyntaxNode.SpanStart;
@@ -351,13 +353,13 @@ namespace TestGitClient
             subGraph.Nodes.AddRange(graph.Nodes.Where(n => n.IsMethodDeclartionNode()));
             subGraph.Edges.AddRange(graph.Edges.Where(e => e.from.IsMethodDeclartionNode() && e.to.IsMethodDeclartionNode()));
 
-            var disconnectedSubGraphs = subGraph.GetConnectedSubGraphs(true).ToList();
+            var disconnectedSubGraphs = subGraph.GetConnectedSubGraphs(true, false).ToList();
                     
             var sinks = subGraph.SinkVertexs();
             ConcurrentBag<int> changes = new ConcurrentBag<int>();
             ConcurrentBag<Tuple<int,string>> allChanges = new ConcurrentBag<Tuple<int, string>>();
                       
-            foreach (var methodHistory in  subGraph.GetConnectedSubGraphs(true))
+            foreach (var methodHistory in  subGraph.GetConnectedSubGraphs(true, false))
             {
                 var s = methodHistory.Nodes.Where(n => methodHistory.Edges.All(e => e.from != n)).FirstOrDefault();
                 if (methodHistory.Edges.Count == methodHistory.Nodes.Count - 1)
@@ -375,8 +377,8 @@ namespace TestGitClient
 
             CommitDescription.Text += "Overall " + changes.Count + " Methods changed " + changes.Min() + " - " + changes.Max() + " avrg. " + changes.Average() + "\n";
             var tmp = allChanges.ToList();                
-            tmp.Sort((s1, s2) => s2.Item1.CompareTo(s1.Item1)); // desending
-            foreach(var t in tmp)
+            tmp.Sort((s1, s2) => s2.Item1.CompareTo(s1.Item1)); // desending            
+            foreach(var t in tmp.Take(20))
             {
                 CommitDescription.Text += t.Item2;
             }
@@ -390,6 +392,11 @@ namespace TestGitClient
             g.Serialize("Test.GEXF");
             g.Serialize2("Test.txt");
             Output("Finished Serializing");
+        }
+
+        private void OnToDb(object sender, RoutedEventArgs e)
+        {
+            GraphToNeo4j.PersistToVm(this.currentGraph);
         }
     }
 }

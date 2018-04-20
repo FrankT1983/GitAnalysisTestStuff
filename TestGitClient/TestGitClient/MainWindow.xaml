@@ -55,6 +55,7 @@
             </DockPanel>
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Top">
                 <Button Click="OnSave">Save</Button>
+                <Button Click="OnToDb">ToDB</Button>
                 <Button Click="OnTrim">Trim</Button>
                 <Button Click="OnStats">Statistics</Button>
             </StackPanel>
@@ -72,9 +73,9 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="15*"/>
                     <ColumnDefinition Width="3" />
-                    <ColumnDefinition Width="30*"/>
+                    <ColumnDefinition Width="50*"/>
                     <ColumnDefinition Width="3" />
-                    <ColumnDefinition Width="100*" />
+                    <ColumnDefinition Width="50*" />
                 </Grid.ColumnDefinitions>
 
                 <Grid>

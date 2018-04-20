@@ -26,7 +26,7 @@ namespace TestGitClient
             CodeChangedRename,
             InFile,
             SyntaxHierarchialyAbove,
-
+            SyntaxHierarchialyAboveOriginal,
         }
 
      
