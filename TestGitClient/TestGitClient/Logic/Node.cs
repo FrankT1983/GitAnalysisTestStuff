@@ -36,6 +36,12 @@ namespace TestGitClient
         public string FullContent { get; set; }
         public SyntaxNode SyntaxNode { get; internal set; }
         public int DistanceFromSyntaxRoot { get; internal set; }
+        // where did the source come from
+        public string CommitId { get; internal set; }
+        // file path
+        public string FilePath { get; internal set; }
+        public int SyntaxSpanStart { get; internal set; }
+        public int SyntaxSpanLength { get; internal set; }
 
         public Node(string nodeId, NodeType nodeType, string content) : this(nodeId, nodeType, content, "")
         {          

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -12,7 +13,7 @@ namespace TestGitClient
     {
         static public SyntakTreeDecorator SyntaxTreeFromString(string content)
         {
-            return SyntaxTreeFromString(content, null, null, null);
+            return SyntaxTreeFromString(content, null, null, null, "1234" , "test.cs");
         }
 
         private static int nodeId = 0;
@@ -24,20 +25,20 @@ namespace TestGitClient
         }
 
      
-        static public SyntakTreeDecorator SyntaxTreeFromString(string content, Node fileNode, List<Node> allNodes, List<Edge> allEdges)
+        static public SyntakTreeDecorator SyntaxTreeFromString(string content, Node fileNode, List<Node> allNodes, List<Edge> allEdges, string commitId, string path)
         {
             var foo = CSharpSyntaxTree.ParseText(content);
 
 
             var enrichedTree = new SyntakTreeDecorator();
             enrichedTree.node = foo.GetRoot();
-            enrichedTree.equivilantGraphNode = new Node(NextGenericId(), Node.NodeType.Syntax, fileNode.Id) {SyntaxNode = foo.GetRoot() };
+            enrichedTree.equivilantGraphNode = GenerateSyntaxNode(foo.GetRoot(), commitId, path);
             nodeId++;
           
 
             var subEdges = new List<Edge>();
             var subNodes = new List<Node>();
-            var childTrees = AddChildsToNodes(foo.GetRoot(), enrichedTree.equivilantGraphNode, subNodes, subEdges, 1);
+            var childTrees = AddChildsToNodes(foo.GetRoot(), enrichedTree.equivilantGraphNode, subNodes, subEdges, 1, commitId , path);
 
             if (allNodes != null)
             {
@@ -57,7 +58,21 @@ namespace TestGitClient
             return enrichedTree;
         }
 
-        static public List<SyntakTreeDecorator> AddChildsToNodes(SyntaxNode rootNode, Node parentGraphNode, List<Node> allNodes, List<Edge> allEdges, int currentLevel)
+        private static Node GenerateSyntaxNode(SyntaxNode syntaxNode, string commitId, string path)
+        {
+            var nodeName = GetName(syntaxNode);
+            return new Node(NextGenericId(), Node.NodeType.Syntax, syntaxNode.Kind().ToString() + (nodeName != null ? " " + nodeName : ""))
+            {
+                SyntaxNode = syntaxNode,
+                SyntaxType = syntaxNode.Kind().ToString(),
+                CommitId = commitId,
+                FilePath = path,
+                SyntaxSpanStart = syntaxNode.Span.Start,
+                SyntaxSpanLength= syntaxNode.Span.Length,
+            };            
+        }
+
+        static public List<SyntakTreeDecorator> AddChildsToNodes(SyntaxNode rootNode, Node parentGraphNode, List<Node> allNodes, List<Edge> allEdges, int currentLevel, string commitId, string path)
         {
             var kind = rootNode.Kind();
             // break early for stuff
@@ -75,9 +90,8 @@ namespace TestGitClient
             var childs = rootNode.ChildNodes().ToList();
             foreach (var c in childs)
             {
-
                 var nodeName = GetName(c);
-                var n = new Node(NextGenericId(), c.Kind().ToString(), c.Kind().ToString() + (nodeName!=null?" "+nodeName:""));
+                var n = GenerateSyntaxNode(c, commitId, path);                
                 var n2 = new SyntakTreeDecorator();
                 n2.equivilantGraphNode = n;
                 n2.node = c;                
@@ -98,7 +112,7 @@ namespace TestGitClient
                     }
                 }
 
-                var childtrees = AddChildsToNodes(c, n, allNodes, allEdges, currentLevel +1);
+                var childtrees = AddChildsToNodes(c, n, allNodes, allEdges, currentLevel +1, commitId, path);
                 if (childtrees != null) { n2.childs.AddRange(childtrees); }
 
                 results.Add(n2);
@@ -122,7 +136,7 @@ namespace TestGitClient
 
                 var subNodes = new List<Node>();
                 var subEdges = new List<Edge>();
-                var enrichedTree = SyntaxTreeFromString(content, fileNode, subNodes, subEdges);               
+                var enrichedTree = SyntaxTreeFromString(content, fileNode, subNodes, subEdges, commit.Sha, path);               
             
                 
                 allNodes.AddRange(subNodes);
@@ -171,6 +185,9 @@ namespace TestGitClient
 
         public static string GetFullName(SyntaxNode node)
         {
+            if (node == null)
+            {   return "";  }
+
             {
                 var typed = node as Microsoft.CodeAnalysis.CSharp.Syntax.ClassDeclarationSyntax;
                 if (typed != null)

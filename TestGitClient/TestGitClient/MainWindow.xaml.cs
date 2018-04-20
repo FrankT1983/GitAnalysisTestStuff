@@ -188,9 +188,9 @@ namespace TestGitClient
                 var parents = new List<Node>();
                 parents.AddRange(parentsAbove);
                 parents.AddRange(parentsBelow);
-                parents.Sort((a, b) => a.SyntaxNode.SpanStart.CompareTo(b.SyntaxNode.SpanStart));
+                parents.Sort((a, b) => a.SyntaxSpanStart.CompareTo(b.SyntaxSpanStart));
 
-                int lineOffset = node.SyntaxNode.SpanStart;
+                int lineOffset = node.SyntaxSpanStart;
 
                 var lines = node.getSyntaxFullContent().Split('\n');
                 int lineNumber = 0;
