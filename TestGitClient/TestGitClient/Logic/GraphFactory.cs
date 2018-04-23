@@ -9,6 +9,39 @@ namespace TestGitClient.Logic
 {
     public class GraphFactory
     {
+        internal class CommitDependencyGraph
+        {
+            internal class CommitNode
+            {
+                public string sha { get; set; }
+                public bool Handled { get; internal set; }
+            }
+            internal class CommitEdge {  public string from; public string to; }
+
+            List<CommitNode> commits = new List<CommitNode>();
+            List<CommitEdge> edges = new List<CommitEdge>();
+
+            internal void AddNode(string sha)
+            {
+                this.commits.Add(new CommitNode() { sha = sha });
+            }
+
+            internal void AddEdge(string sha1, string sha2)
+            {
+                this.edges.Add(new CommitEdge() { from = sha1, to = sha2 });
+            }
+
+            internal void SetFinished(string sha)
+            {
+                var c = this.commits.Where(n => n.sha == sha).FirstOrDefault();
+                if (c!= null)
+                {
+                    c.Handled = true;
+                }
+
+            }
+        }
+
         static public  Graph GraphFromRepoFolder(Repository repo, int max = -1)
         {                       
             var graph = new Graph();
@@ -20,12 +53,21 @@ namespace TestGitClient.Logic
             var allNodes = new List<Node>();
             var allEdges = new List<Edge>();
             int i = 0;
-            Node lastCommit = null;
+            Node lastCommit = null;          
 
             var commits = new List<Commit>(repo.Commits);
             commits.Sort((a, b) => a.Author.When.CompareTo(b.Author.When));
 
-                
+            var depGraph = new CommitDependencyGraph();
+            foreach (Commit commit in commits)
+            {
+                depGraph.AddNode(commit.Sha);
+                foreach (var parent in commit.Parents)
+                {
+                    depGraph.AddEdge(parent.Sha, commit.Sha);
+                }
+            }
+
             foreach (Commit commit in commits)
             {
                 System.Console.WriteLine(i++);
@@ -52,7 +94,7 @@ namespace TestGitClient.Logic
                 {
                     allEdges.Add(new Edge(lastCommit, commitNode, Edge.EdgeType.NextCommit));
                 }
-                lastCommit = commitNode;
+                lastCommit = commitNode;                
 
                 bool hasParrents = false;
                 foreach (var parent in commit.Parents)
@@ -82,7 +124,6 @@ namespace TestGitClient.Logic
                         if (previousTrees.ContainsKey(ContructCommitTreeIdentifyer(commit.Sha, change.Path)))
                         {
                             // this can happen with multiple Parents in case of a merge ... think about how to handle this
-
                         }
                         else
                         {
@@ -103,6 +144,10 @@ namespace TestGitClient.Logic
                 {
                     AddInitialCommitToGraph(fileNodes, allNodes, allEdges, commit, commitNode, previousTrees);
                 }
+
+                depGraph.SetFinished(commit.Sha);
+                //depGraph.GetCommitsWithoutDependencies()
+                // dump them and their syntax trees
             }
 
             graph.Add(allNodes);

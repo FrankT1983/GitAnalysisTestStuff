@@ -78,11 +78,12 @@ namespace TestGitClient
             // break early for stuff
             if (
                 (kind == SyntaxKind.UsingDirective)
-                || (kind == SyntaxKind.SimpleBaseType) || (kind == SyntaxKind.ParameterList) || (kind == SyntaxKind.ExpressionStatement) || (kind == SyntaxKind.LocalDeclarationStatement) || (kind == SyntaxKind.NotEqualsExpression)
+                || (kind == SyntaxKind.SimpleBaseType) || (kind == SyntaxKind.ExpressionStatement) || (kind == SyntaxKind.LocalDeclarationStatement) || (kind == SyntaxKind.NotEqualsExpression)
                 || (kind == SyntaxKind.EnumMemberDeclaration) || (kind == SyntaxKind.FieldDeclaration) || (kind == SyntaxKind.AttributeList)
-                || (kind == SyntaxKind.ConstructorDeclaration) || (kind == SyntaxKind.MethodDeclaration) || (kind == SyntaxKind.DestructorDeclaration)
+                //|| (kind == SyntaxKind.ConstructorDeclaration) || (kind == SyntaxKind.MethodDeclaration) || (kind == SyntaxKind.DestructorDeclaration)
                 //|| (kind == SyntaxKind.ClassDeclaration)
-                || (kind == SyntaxKind.Block)
+                || (kind == SyntaxKind.Block) || (kind == SyntaxKind.ParameterList) 
+                || (kind == SyntaxKind.ObjectCreationExpression) || (kind == SyntaxKind.GenericName)              
                 )
             { return null; }
 
@@ -220,6 +221,18 @@ namespace TestGitClient
                 {
                     return typed.ToFullString().Trim();
                 }
+            }
+
+
+            switch (node.Kind())
+            {
+                case SyntaxKind.ObjectCreationExpression:
+                    // todo
+                    break;
+
+                case SyntaxKind.Parameter:
+                    // todo
+                    break;
             }
 
             return null;
